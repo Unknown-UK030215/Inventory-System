@@ -158,207 +158,216 @@ export default function QRScanner() {
   }, [scannedAsset]);
 
   return (
-    <div className="page-container max-w-2xl mx-auto px-4 sm:px-6">
-      <div className="mb-6 text-center sm:text-left">
-        <h1 className="text-2xl font-bold text-gray-800">QR Asset Scanner</h1>
-        <p className="text-gray-500 text-sm mt-1">Scan equipment QR stickers to view details or report issues</p>
+    <div className="page-container">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">QR Scanner</h1>
+        {!isScanning && !scannedAsset && (
+          <button 
+            onClick={startScanner}
+            className="btn-primary flex items-center gap-2"
+          >
+            <span>📷</span> Start Camera Scanner
+          </button>
+        )}
+        {isScanning && (
+          <button 
+            onClick={stopScanner}
+            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          >
+            Stop Scanner
+          </button>
+        )}
       </div>
 
-      {!scannedAsset ? (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div 
-              id="qr-reader" 
-              className={`overflow-hidden rounded-xl bg-gray-900 aspect-square sm:aspect-video ${!isScanning ? 'hidden' : 'block'}`}
-            ></div>
-            
-            {!isScanning && (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                  📷
-                </div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">Ready to Scan</h3>
-                <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto">Point your camera at the asset's QR code sticker to automatically retrieve its information.</p>
-                <button 
-                  onClick={startScanner}
-                  className="w-full sm:w-auto bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-                >
-                  Start Camera
-                </button>
-              </div>
-            )}
-
-            {isScanning && (
-              <div className="mt-6 text-center">
-                <button 
-                  onClick={stopScanner}
-                  className="w-full sm:w-auto bg-red-50 text-red-600 px-8 py-3 rounded-xl font-bold hover:bg-red-100 transition"
-                >
-                  Stop Scanning
-                </button>
-              </div>
-            )}
-
-            {cameraError && (
-              <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium flex items-center gap-3">
-                <span className="text-xl">⚠️</span>
-                {cameraError}
-              </div>
-            )}
-          </div>
+      {cameraError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">Camera Error</p>
+          <p>{cameraError}</p>
         </div>
-      ) : (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {/* Asset Info Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-blue-600 px-6 py-4 text-white flex justify-between items-center">
-              <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Asset Details</p>
-                <h2 className="text-xl font-bold">{scannedAsset.name}</h2>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Scanner Section */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4">Scan QR Code</h2>
+          
+          {!scannedAsset ? (
+            <div className="flex flex-col items-center">
+              <div 
+                id="qr-reader" 
+                className="w-full max-w-sm mx-auto"
+                style={{ minHeight: "300px" }}
+              ></div>
+              
+              {!isScanning && (
+                <button 
+                  onClick={goToCamera}
+                  className="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <span className="text-xl">📷</span>
+                  <span className="font-semibold">Open Camera Scanner</span>
+                </button>
+              )}
+              
+              <p className="text-gray-500 text-sm mt-4 text-center">
+                Point your camera at the QR code sticker on the equipment or furniture
+              </p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="bg-green-100 text-green-700 p-4 rounded-lg mb-4">
+                <p className="font-bold text-lg">✓ QR Code Scanned Successfully!</p>
+                <p className="text-sm">Serial: {scannedAsset.serial}</p>
               </div>
               <button 
-                onClick={() => setScannedAsset(null)}
-                className="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors"
+                onClick={() => {
+                  setScannedAsset(null);
+                  setReports([]);
+                }}
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
               >
-                ✕
+                Scan Another
               </button>
             </div>
-            
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Serial Number</p>
-                  <p className="font-mono font-bold text-gray-800">{scannedAsset.serial}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Status</p>
-                  <span className={`badge ${
-                    scannedAsset.status === 'Active' ? 'badge-active' : 
-                    scannedAsset.status === 'Disposed' ? 'badge-danger' : 'badge-pending'
+          )}
+        </div>
+
+        {/* Asset Information Section */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4">Asset Information</h2>
+          
+          {scannedAsset ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{scannedAsset.name}</h3>
+                    <p className="text-sm text-gray-500">S/N: <span className="font-mono">{scannedAsset.serial}</span></p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    scannedAsset.status === 'Active' ? 'bg-green-100 text-green-700' :
+                    scannedAsset.status === 'Disposed' ? 'bg-red-100 text-red-700' :
+                    'bg-yellow-100 text-yellow-700'
                   }`}>
                     {scannedAsset.status}
                   </span>
                 </div>
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Date Received</p>
-                  <p className="font-semibold text-gray-700">{scannedAsset.dateReceived}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Location</p>
-                  <p className="font-semibold text-gray-700">{scannedAsset.location}</p>
+                
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500">Category</p>
+                    <p className="font-semibold">{scannedAsset.category}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Assigned To</p>
+                    <p className="font-semibold">{scannedAsset.assignedTo}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Date Received</p>
+                    <p className="font-semibold">{scannedAsset.dateReceived}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Location</p>
+                    <p className="font-semibold">{scannedAsset.location}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Problem History */}
-              <div className="mb-8">
-                <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="w-5 h-5 bg-gray-100 rounded flex items-center justify-center text-[10px]">📜</span>
-                  Issue History
-                </h3>
+              {/* Problems/Issues History */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-semibold text-gray-700">Problems & Issues History</h4>
+                  <button
+                    onClick={() => setShowReportForm(!showReportForm)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                  >
+                    {showReportForm ? 'Cancel' : '+ Report Issue'}
+                  </button>
+                </div>
+
+                {showReportForm && (
+                  <form onSubmit={handleReportSubmit} className="bg-gray-50 p-4 rounded-lg mb-4">
+                    <div className="mb-3">
+                      <label className="block text-sm font-semibold mb-2">Report Type</label>
+                      <select
+                        value={reportType}
+                        onChange={(e) => setReportType(e.target.value)}
+                        className="w-full p-2 border rounded"
+                      >
+                        <option value="problem">Problem</option>
+                        <option value="issue">Issue</option>
+                        <option value="maintenance">Maintenance</option>
+                      </select>
+                    </div>
+                    <div className="mb-3">
+                      <label className="block text-sm font-semibold mb-2">Description</label>
+                      <textarea
+                        value={reportText}
+                        onChange={(e) => setReportText(e.target.value)}
+                        className="w-full p-2 border rounded"
+                        rows="3"
+                        placeholder="Describe the problem or issue..."
+                        required
+                      ></textarea>
+                    </div>
+                    <button
+                      type="submit"
+                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full"
+                    >
+                      Submit Report
+                    </button>
+                  </form>
+                )}
+
                 {reports.length > 0 ? (
-                  <div className="space-y-3">
-                    {reports.map((report, i) => (
-                      <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {reports.map((report, index) => (
+                      <div key={index} className={`p-3 rounded-lg border ${
+                        report.type === 'problem' ? 'bg-red-50 border-red-200' :
+                        report.type === 'issue' ? 'bg-yellow-50 border-yellow-200' :
+                        'bg-blue-50 border-blue-200'
+                      }`}>
                         <div className="flex justify-between items-start mb-1">
-                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                            report.type === 'problem' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                            report.type === 'problem' ? 'bg-red-200 text-red-700' :
+                            report.type === 'issue' ? 'bg-yellow-200 text-yellow-700' :
+                            'bg-blue-200 text-blue-700'
                           }`}>
-                            {report.type}
+                            {report.type.toUpperCase()}
                           </span>
-                          <span className="text-[10px] text-gray-400 font-medium">{report.reportedAt}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                            report.status === 'Resolved' ? 'bg-green-200 text-green-700' :
+                            report.status === 'Pending' ? 'bg-yellow-200 text-yellow-700' :
+                            'bg-orange-200 text-orange-700'
+                          }`}>
+                            {report.status}
+                          </span>
                         </div>
-                        <p className="text-xs text-gray-700 leading-relaxed">{report.description}</p>
-                        <div className="mt-2 text-[10px] font-bold text-blue-600 uppercase">Status: {report.status}</div>
+                        <p className="text-sm text-gray-700 mb-1">{report.description}</p>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Reported: {report.reportedAt}</span>
+                          <span>By: {report.reportedBy}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-100">
-                    <p className="text-xs text-gray-400">No issues reported for this asset.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                {!showReportForm ? (
-                  <>
-                    <button 
-                      onClick={() => setShowReportForm(true)}
-                      className="flex-1 bg-red-600 text-white py-3 px-6 rounded-xl font-bold hover:bg-red-700 transition shadow-lg shadow-red-100 flex items-center justify-center gap-2"
-                    >
-                      <span>⚠️</span> Report an Issue
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setScannedAsset(null);
-                        setReports([]);
-                      }}
-                      className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-bold hover:bg-gray-200 transition"
-                    >
-                      Scan Another
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full animate-in slide-in-from-top-2 duration-200">
-                    <form onSubmit={handleReportSubmit}>
-                      <div className="mb-4">
-                        <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">Issue Type</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button 
-                            type="button"
-                            onClick={() => setReportType('problem')}
-                            className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                              reportType === 'problem' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            Problem
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => setReportType('issue')}
-                            className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                              reportType === 'issue' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            Minor Issue
-                          </button>
-                        </div>
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">Description</label>
-                        <textarea 
-                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
-                          placeholder="Please describe the issue in detail..."
-                          rows="4"
-                          value={reportText}
-                          onChange={(e) => setReportText(e.target.value)}
-                          required
-                        ></textarea>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <button 
-                          type="submit"
-                          className="flex-1 bg-red-600 text-white py-3 px-6 rounded-xl font-bold hover:bg-red-700 transition"
-                        >
-                          Submit Report
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setShowReportForm(false)}
-                          className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-bold hover:bg-gray-200 transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-4xl mb-2">✓</p>
+                    <p>No problems or issues reported</p>
                   </div>
                 )}
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-5xl mb-4">📷</p>
+              <p className="text-lg">No asset scanned yet</p>
+              <p className="text-sm mt-2">Scan a QR code to view asset information</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

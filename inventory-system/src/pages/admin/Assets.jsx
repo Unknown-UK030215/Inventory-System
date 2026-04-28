@@ -211,11 +211,11 @@ export default function Assets() {
     </div>
 
       {showAssetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
-              <button onClick={() => setShowAssetModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl transition-colors">×</button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
+              <button onClick={() => setShowAssetModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
             <form onSubmit={handleAssetSubmit} className="space-y-4">
@@ -307,43 +307,47 @@ export default function Assets() {
         </div>
       )}
 
-      {showQRModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">QR Sticker</h2>
-                <button onClick={closeQRModal} className="text-gray-400 hover:text-gray-600 text-2xl transition-colors">×</button>
-              </div>
-              
-              <div className="flex flex-col items-center bg-gray-50 p-8 rounded-xl border-2 border-dashed border-gray-200 mb-6">
+      {showQRModal && selectedAsset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">QR Code for {selectedAsset.name}</h2>
+              <button 
+                onClick={closeQRModal}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="flex flex-col items-center mb-6">
+              <div className="border-2 border-dashed border-gray-300 p-4 rounded-lg">
                 <QRCodeCanvas 
                   id="qr-code-canvas"
-                  value={selectedAsset?.serial} 
+                  value={selectedAsset.serial}
                   size={180}
                   level="H"
                   includeMargin={true}
                 />
-                <div className="mt-4 text-center">
-                  <p className="font-bold text-gray-900 text-lg uppercase tracking-widest">{selectedAsset?.serial}</p>
-                  <p className="text-xs text-gray-500 font-medium uppercase mt-1 tracking-tighter">{selectedAsset?.name}</p>
-                </div>
               </div>
+              <p className="mt-3 text-sm text-gray-600">
+                Serial Number: <span className="font-mono font-semibold">{selectedAsset.serial}</span>
+              </p>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={printQRCode}
-                  className="bg-blue-600 text-white px-4 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-                >
-                  <span>🖨️</span> Print
-                </button>
-                <button 
-                  onClick={downloadQRCode}
-                  className="bg-gray-100 text-gray-700 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
-                >
-                  <span>💾</span> Download
-                </button>
-              </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={printQRCode}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
+              >
+                Print Sticker
+              </button>
+              <button 
+                onClick={downloadQRCode}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
+              >
+                Download
+              </button>
             </div>
           </div>
         </div>

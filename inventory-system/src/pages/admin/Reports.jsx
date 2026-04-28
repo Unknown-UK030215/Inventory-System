@@ -51,73 +51,85 @@ export default function AdminReports() {
     <div className="page-container">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Staff Reports</h1>
-        <p className="text-gray-500 text-sm">Review and act on issues reported by staff via QR scan</p>
+        <p className="text-gray-500">Review and act on issues reported by staff via QR scan</p>
       </div>
 
-      <div className="card overflow-hidden p-0 border-0 shadow-sm rounded-xl">
-        <div className="overflow-x-auto">
-          <table className="data-table w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset / Serial</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Reported By</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+      <div className="card overflow-hidden p-0">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Asset / Serial</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Reported By</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports.map((report) => (
+              <tr key={report.id}>
+                <td>
+                  <div className="font-medium text-gray-900">{report.assetName}</div>
+                  <div className="text-xs text-gray-500 font-mono">{report.serial}</div>
+                </td>
+                <td>
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    report.type === 'Problem' ? 'bg-red-100 text-red-700' :
+                    report.type === 'Issue' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {report.type}
+                  </span>
+                </td>
+                <td className="max-w-xs truncate text-sm" title={report.description}>
+                  {report.description}
+                </td>
+                <td className="text-sm">{report.reportedBy}</td>
+                <td className="text-sm text-gray-500">{report.reportedAt}</td>
+                <td>
+                  <span className={`badge ${
+                    report.status === 'Pending' ? 'badge-pending' :
+                    report.status === 'In Progress' ? 'bg-orange-100 text-orange-700' :
+                    report.status === 'Resolved' ? 'badge-active' : 'badge-danger'
+                  }`}>
+                    {report.status}
+                  </span>
+                </td>
+                <td>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleAction(report.id, "Under Repair")}
+                      className="text-xs bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600"
+                    >
+                      Repair
+                    </button>
+                    <button 
+                      onClick={() => handleAction(report.id, "Disposed")}
+                      className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                    >
+                      Dispose
+                    </button>
+                    <button 
+                      onClick={() => handleAction(report.id, "Resolved")}
+                      className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {reports.map((report) => (
-                <tr key={report.id}>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{report.assetName}</div>
-                    <div className="text-[10px] text-gray-400 font-mono">{report.serial}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                      report.type === 'Problem' ? 'bg-red-100 text-red-700' :
-                      report.type === 'Issue' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {report.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 max-w-[200px] truncate text-sm text-gray-600" title={report.description}>
-                    {report.description}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{report.reportedBy}</td>
-                  <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">{report.reportedAt}</td>
-                  <td className="px-4 py-3">
-                    <span className={`badge ${
-                      report.status === 'Pending' ? 'badge-pending' :
-                      report.status === 'In Progress' ? 'bg-orange-100 text-orange-700' :
-                      report.status === 'Resolved' ? 'badge-active' : 'badge-danger'
-                    }`}>
-                      {report.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                      <select 
-                        onChange={(e) => handleAction(report.id, e.target.value)}
-                        className="text-xs border rounded p-1 bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>Action</option>
-                        <option value="Under Repair">Repair</option>
-                        <option value="Resolved">Resolve</option>
-                        <option value="Disposed">Dispose</option>
-                      </select>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      {reports.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed mt-6">
+          <p className="text-gray-500 text-lg">No pending reports from staff. Everything is in order! ✨</p>
+        </div>
+      )}
     </div>
   );
 }

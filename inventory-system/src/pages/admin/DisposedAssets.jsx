@@ -10,41 +10,39 @@ export default function DisposedAssets() {
   return (
     <div className="page-container">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Disposed Assets</h1>
-        <p className="text-gray-500 text-sm">History of retired or disposed equipment</p>
+        <h1 className="text-2xl font-bold">Disposed Assets</h1>
+        <p className="text-gray-500">History of retired or disposed equipment</p>
       </div>
 
-      <div className="card overflow-hidden p-0 border-0 shadow-sm rounded-xl">
-        <div className="overflow-x-auto">
-          <table className="data-table w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset Name</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Serial</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Disposal Date</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Reason</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+      <div className="card overflow-hidden p-0">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Asset Name</th>
+              <th>Category</th>
+              <th>Serial</th>
+              <th>Disposal Date</th>
+              <th>Reason</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {disposedAssets.map((asset) => (
+              <tr key={asset.id}>
+                <td className="font-medium">{asset.name}</td>
+                <td>{asset.category}</td>
+                <td className="text-sm text-gray-500 font-mono">{asset.serial}</td>
+                <td>{asset.disposalDate}</td>
+                <td>{asset.reason}</td>
+                <td>
+                  <span className="badge badge-danger">
+                    {asset.status}
+                  </span>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {disposedAssets.map((asset) => (
-                <tr key={asset.id}>
-                  <td className="px-4 py-3 font-medium text-gray-900">{asset.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{asset.category}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">{asset.serial}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{asset.disposalDate}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{asset.reason}</td>
-                  <td className="px-4 py-3">
-                    <span className="badge badge-danger">
-                      {asset.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {disposedAssets.length === 0 && (
