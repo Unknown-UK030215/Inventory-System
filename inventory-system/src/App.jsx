@@ -10,6 +10,7 @@ import Dashboard from "./pages/admin/Dashboard";
 import Assets from "./pages/admin/Assets";
 import Users from "./pages/admin/Users";
 import DisposedAssets from "./pages/admin/DisposedAssets";
+import AdminReports from "./pages/admin/Reports";
 
 // Staff pages (placeholders for now)
 import StaffDashboard from "./pages/staff/Dashboard";
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="assets" element={<Assets />} />
         <Route path="users" element={<Users />} />
+        <Route path="reports" element={<AdminReports />} />
         <Route path="disposed" element={<DisposedAssets />} />
       </Route>
 

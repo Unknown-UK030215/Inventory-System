@@ -52,7 +52,7 @@ export default function Login() {
                   type="email"
                   className="login-input"
                   placeholder="name@company.com"
-                  required
+                  // required
                 />
               </div>
               <button className="w-full p-2 rounded font-bold text-white bg-blue-600 hover:bg-blue-700 mb-4">
@@ -115,7 +115,7 @@ export default function Login() {
             placeholder="name@company.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
+            // required
           />
         </div>
 
@@ -138,7 +138,7 @@ export default function Login() {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
+            // required
           />
         </div>
 
