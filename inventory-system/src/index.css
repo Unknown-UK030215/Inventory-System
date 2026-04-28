@@ -1,0 +1,14 @@
+/* Global Reset and Utility Overrides */
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

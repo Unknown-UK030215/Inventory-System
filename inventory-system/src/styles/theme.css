@@ -1,0 +1,33 @@
+:root {
+  /* Colors */
+  --primary-bg: #f3f4f6;
+  --secondary-bg: #ffffff;
+  
+  /* Admin Theme */
+  --admin-sidebar: #111827;
+  --admin-sidebar-text: #ffffff;
+  --admin-accent: #3b82f6;
+  
+  /* Staff Theme */
+  --staff-sidebar: #064e3b;
+  --staff-sidebar-text: #ffffff;
+  --staff-accent: #10b981;
+
+  /* Text States */
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --text-on-dark: #ffffff;
+
+  /* Status Badges */
+  --status-active-bg: #dcfce7;
+  --status-active-text: #166534;
+  --status-pending-bg: #fef9c3;
+  --status-pending-text: #854d0e;
+  --status-danger-bg: #fee2e2;
+  --status-danger-text: #991b1b;
+
+  /* UI Tokens */
+  --border-color: #e5e7eb;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
