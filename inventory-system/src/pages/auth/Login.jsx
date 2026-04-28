@@ -32,10 +32,10 @@ export default function Login() {
 
   if (isForgotPassword) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
         <form
           onSubmit={handleResetPassword}
-          className="login-card"
+          className="w-full max-w-md bg-white p-6 lg:p-10 rounded-2xl shadow-xl"
         >
           <h2 className="text-2xl mb-2 font-bold text-center">Reset Password</h2>
           <p className="text-gray-500 text-center mb-6">
@@ -80,11 +80,11 @@ export default function Login() {
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
 
       <form
         onSubmit={handleLogin}
-        className="login-card"
+        className="w-full max-w-md bg-white p-6 lg:p-10 rounded-2xl shadow-xl"
       >
 
         <h2 className="text-2xl mb-2 font-bold text-center">Welcome Back</h2>

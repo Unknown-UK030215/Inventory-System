@@ -3,10 +3,13 @@ import { QRCodeCanvas } from "qrcode.react";
 
 export default function Assets() {
   const [assets, setAssets] = useState([
-    { id: 1, name: "Laptop Dell XPS", category: "Electronics", status: "Active", serial: "DELL-1234", assignedTo: "John Doe" },
-    { id: 2, name: "Monitor HP 24\"", category: "Electronics", status: "Active", serial: "HP-5678", assignedTo: "Jane Smith" },
-    { id: 3, name: "Office Chair", category: "Furniture", status: "Under Repair", serial: "CHAIR-9012", assignedTo: "None" },
-    { id: 4, name: "MacBook Pro", category: "Electronics", status: "Disposed", serial: "MAC-4321", assignedTo: "None" },
+    { id: 1, name: "MacBook Pro 16", category: "Laptop", status: "Active", serial: "MAC-7890", assignedTo: "John Doe" },
+    { id: 2, name: "Dell Latitude 5420", category: "Laptop", status: "Active", serial: "DELL-4432", assignedTo: "Jane Smith" },
+    { id: 3, name: "Industrial Floor Fan", category: "Fan", status: "Active", serial: "FAN-1122", assignedTo: "Room 101" },
+    { id: 4, name: "Ergonomic Office Chair", category: "Chair", status: "Under Repair", serial: "CHR-5566", assignedTo: "Unassigned" },
+    { id: 5, name: "Epson Projector X41", category: "Projector", status: "Active", serial: "EPS-9911", assignedTo: "Conference Room" },
+    { id: 6, name: "Steel Filing Cabinet", category: "Furniture", status: "Active", serial: "CAB-3344", assignedTo: "Accounting" },
+    { id: 7, name: "Standing Desk", category: "Furniture", status: "Active", serial: "DSK-2233", assignedTo: "John Doe" },
   ]);
 
   const [selectedAsset, setSelectedAsset] = useState(null);
@@ -139,29 +142,33 @@ export default function Assets() {
 
   return (
     <div className="page-container">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Manage Assets</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Assets Inventory</h1>
+          <p className="text-gray-500 text-sm">Manage equipment and generate QR stickers</p>
+        </div>
         <button 
           onClick={() => handleOpenAssetModal()}
-          className="btn-primary"
+          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-semibold"
         >
           + Add New Asset
         </button>
       </div>
       
-      <div className="card overflow-hidden p-0">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Asset Name</th>
-              <th>Category</th>
-              <th>Serial</th>
-              <th>Assigned To</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="card overflow-hidden p-0 border-0 shadow-sm rounded-xl">
+        <div className="overflow-x-auto">
+          <table className="data-table w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset Name</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Serial</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned To</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
             {assets.map((asset) => (
               <tr key={asset.id}>
                 <td className="font-medium">{asset.name}</td>
@@ -176,22 +183,22 @@ export default function Assets() {
                     {asset.status}
                   </span>
                 </td>
-                <td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">
                   <button 
                     onClick={() => openQRModal(asset)}
-                    className="text-green-600 hover:underline mr-3 text-sm"
+                    className="text-green-600 hover:text-green-800 mr-3 text-sm font-medium"
                   >
                     QR Code
                   </button>
                   <button 
                     onClick={() => handleOpenAssetModal(asset)}
-                    className="text-blue-600 hover:underline mr-3 text-sm"
+                    className="text-blue-600 hover:text-blue-800 mr-3 text-sm font-medium"
                   >
                     Edit
                   </button>
                   <button 
                     onClick={() => handleDeleteAsset(asset.id)}
-                    className="text-red-600 hover:underline text-sm"
+                    className="text-red-600 hover:text-red-800 text-sm font-medium"
                   >
                     Delete
                   </button>
@@ -201,13 +208,14 @@ export default function Assets() {
           </tbody>
         </table>
       </div>
+    </div>
 
       {showAssetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
-              <button onClick={() => setShowAssetModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-800">{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
+              <button onClick={() => setShowAssetModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl transition-colors">×</button>
             </div>
 
             <form onSubmit={handleAssetSubmit} className="space-y-4">
@@ -233,9 +241,13 @@ export default function Assets() {
                     onChange={(e) => setAssetFormData({...assetFormData, category: e.target.value})}
                   >
                     <option value="">Select</option>
-                    <option value="Electronics">Electronics</option>
+                    <option value="Laptop">Laptop</option>
+                    <option value="Fan">Fan</option>
+                    <option value="Chair">Chair</option>
+                    <option value="Projector">Projector</option>
                     <option value="Furniture">Furniture</option>
-                    <option value="Office Supplies">Office Supplies</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
@@ -295,47 +307,43 @@ export default function Assets() {
         </div>
       )}
 
-      {showQRModal && selectedAsset && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">QR Code for {selectedAsset.name}</h2>
-              <button 
-                onClick={closeQRModal}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="flex flex-col items-center mb-6">
-              <div className="border-2 border-dashed border-gray-300 p-4 rounded-lg">
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800">QR Sticker</h2>
+                <button onClick={closeQRModal} className="text-gray-400 hover:text-gray-600 text-2xl transition-colors">×</button>
+              </div>
+              
+              <div className="flex flex-col items-center bg-gray-50 p-8 rounded-xl border-2 border-dashed border-gray-200 mb-6">
                 <QRCodeCanvas 
                   id="qr-code-canvas"
-                  value={selectedAsset.serial}
+                  value={selectedAsset?.serial} 
                   size={180}
                   level="H"
                   includeMargin={true}
                 />
+                <div className="mt-4 text-center">
+                  <p className="font-bold text-gray-900 text-lg uppercase tracking-widest">{selectedAsset?.serial}</p>
+                  <p className="text-xs text-gray-500 font-medium uppercase mt-1 tracking-tighter">{selectedAsset?.name}</p>
+                </div>
               </div>
-              <p className="mt-3 text-sm text-gray-600">
-                Serial Number: <span className="font-mono font-semibold">{selectedAsset.serial}</span>
-              </p>
-            </div>
 
-            <div className="flex gap-3">
-              <button 
-                onClick={printQRCode}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
-              >
-                Print Sticker
-              </button>
-              <button 
-                onClick={downloadQRCode}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
-              >
-                Download
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={printQRCode}
+                  className="bg-blue-600 text-white px-4 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>🖨️</span> Print
+                </button>
+                <button 
+                  onClick={downloadQRCode}
+                  className="bg-gray-100 text-gray-700 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>💾</span> Download
+                </button>
+              </div>
             </div>
           </div>
         </div>
