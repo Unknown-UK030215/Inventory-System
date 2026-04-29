@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("supabase_session");
     navigate("/");
   };
 
@@ -25,6 +28,7 @@ export default function AdminLayout() {
           <NavLink to="/admin/users" className="nav-link">Users</NavLink>
           <NavLink to="/admin/reports" className="nav-link">Staff Reports</NavLink>
           <NavLink to="/admin/disposed" className="nav-link">Disposed</NavLink>
+          <NavLink to="/admin/profile" className="nav-link">Profile Settings</NavLink>
         </nav>
       </aside>
 
@@ -45,6 +49,7 @@ export default function AdminLayout() {
               <NavLink to="/admin/users" className="nav-link mobile" onClick={closeMobileMenu}>Users</NavLink>
               <NavLink to="/admin/reports" className="nav-link mobile" onClick={closeMobileMenu}>Staff Reports</NavLink>
               <NavLink to="/admin/disposed" className="nav-link mobile" onClick={closeMobileMenu}>Disposed</NavLink>
+              <NavLink to="/admin/profile" className="nav-link mobile" onClick={closeMobileMenu}>Profile Settings</NavLink>
             </nav>
           </aside>
         </div>

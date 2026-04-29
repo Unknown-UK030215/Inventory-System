@@ -8,11 +8,14 @@ import './styles/components.css'
 import './styles/auth.css'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+import { InventoryProvider } from './context/InventoryContext'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <InventoryProvider>
+        <App />
+      </InventoryProvider>
     </BrowserRouter>
   </StrictMode>
 )

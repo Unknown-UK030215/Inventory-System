@@ -1,27 +1,23 @@
 import { useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { supabase } from "../../lib/supabase";
+import { useInventory } from "../../context/InventoryContext";
 
 export default function Assets() {
-  const [assets, setAssets] = useState([
-    { id: 1, name: "MacBook Pro 16", category: "Laptop", status: "Active", serial: "MAC-7890", assignedTo: "John Doe" },
-    { id: 2, name: "Dell Latitude 5420", category: "Laptop", status: "Active", serial: "DELL-4432", assignedTo: "Jane Smith" },
-    { id: 3, name: "Industrial Floor Fan", category: "Fan", status: "Active", serial: "FAN-1122", assignedTo: "Room 101" },
-    { id: 4, name: "Ergonomic Office Chair", category: "Chair", status: "Under Repair", serial: "CHR-5566", assignedTo: "Unassigned" },
-    { id: 5, name: "Epson Projector X41", category: "Projector", status: "Active", serial: "EPS-9911", assignedTo: "Conference Room" },
-    { id: 6, name: "Steel Filing Cabinet", category: "Furniture", status: "Active", serial: "CAB-3344", assignedTo: "Accounting" },
-    { id: 7, name: "Standing Desk", category: "Furniture", status: "Active", serial: "DSK-2233", assignedTo: "John Doe" },
-  ]);
-
+  const { assets, categories, locations, loading, error, refreshData } = useInventory();
+  
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [assetFormData, setAssetFormData] = useState({
     name: "",
-    category: "",
+    category_id: "",
+    location_id: "",
     status: "Active",
     serial: "",
-    assignedTo: "None"
+    assigned_to_name: "None"
   });
 
   const handleOpenAssetModal = (asset = null) => {
@@ -29,41 +25,70 @@ export default function Assets() {
       setEditingAsset(asset);
       setAssetFormData({
         name: asset.name,
-        category: asset.category,
+        category_id: asset.category_id,
+        location_id: asset.location_id,
         status: asset.status,
         serial: asset.serial,
-        assignedTo: asset.assignedTo
+        assigned_to_name: asset.assigned_to_name || "None"
       });
     } else {
       setEditingAsset(null);
       setAssetFormData({
         name: "",
-        category: "",
+        category_id: "",
+        location_id: "",
         status: "Active",
         serial: `SN-${Math.floor(1000 + Math.random() * 9000)}`,
-        assignedTo: "None"
+        assigned_to_name: "None"
       });
     }
     setShowAssetModal(true);
   };
 
-  const handleAssetSubmit = (e) => {
+  const handleAssetSubmit = async (e) => {
     e.preventDefault();
-    if (editingAsset) {
-      setAssets(assets.map(a => a.id === editingAsset.id ? { ...a, ...assetFormData } : a));
-    } else {
-      const newAsset = {
-        id: assets.length + 1,
-        ...assetFormData
-      };
-      setAssets([...assets, newAsset]);
+    setIsSubmitting(true);
+
+    try {
+      if (!supabase) throw new Error("Database not connected.");
+
+      if (editingAsset) {
+        const { error: updateError } = await supabase
+          .from('assets')
+          .update(assetFormData)
+          .eq('id', editingAsset.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('assets')
+          .insert([assetFormData]);
+
+        if (insertError) throw insertError;
+      }
+      
+      // Data will be updated automatically via RLS/Subscription in Context
+      setShowAssetModal(false);
+    } catch (err) {
+      alert("Error saving asset: " + err.message);
+    } finally {
+      setIsSubmitting(false);
     }
-    setShowAssetModal(false);
   };
 
-  const handleDeleteAsset = (id) => {
+  const handleDeleteAsset = async (id) => {
     if (window.confirm("Are you sure you want to delete this asset?")) {
-      setAssets(assets.filter(a => a.id !== id));
+      try {
+        if (!supabase) throw new Error("Database not connected.");
+        const { error: deleteError } = await supabase
+          .from('assets')
+          .delete()
+          .eq('id', id);
+
+        if (deleteError) throw deleteError;
+      } catch (err) {
+        alert("Error deleting asset: " + err.message);
+      }
     }
   };
 
@@ -155,6 +180,19 @@ export default function Assets() {
         </button>
       </div>
       
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
+          <p className="font-bold">Error loading data:</p>
+          <p className="text-sm">{error}</p>
+          <button 
+            onClick={() => refreshData()} 
+            className="mt-2 text-xs bg-red-700 text-white px-2 py-1 rounded hover:bg-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      
       <div className="card overflow-hidden p-0 border-0 shadow-sm rounded-xl">
         <div className="overflow-x-auto">
           <table className="data-table w-full">
@@ -162,6 +200,7 @@ export default function Assets() {
               <tr className="bg-gray-50 border-b">
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset Name</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Serial</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned To</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
@@ -169,42 +208,53 @@ export default function Assets() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-            {assets.map((asset) => (
-              <tr key={asset.id}>
-                <td className="font-medium">{asset.name}</td>
-                <td>{asset.category}</td>
-                <td className="text-sm text-gray-500">{asset.serial}</td>
-                <td>{asset.assignedTo}</td>
-                <td>
-                  <span className={`badge ${
-                    asset.status === 'Active' ? 'badge-active' : 
-                    asset.status === 'Disposed' ? 'badge-danger' : 'badge-pending'
-                  }`}>
-                    {asset.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button 
-                    onClick={() => openQRModal(asset)}
-                    className="text-green-600 hover:text-green-800 mr-3 text-sm font-medium"
-                  >
-                    QR Code
-                  </button>
-                  <button 
-                    onClick={() => handleOpenAssetModal(asset)}
-                    className="text-blue-600 hover:text-blue-800 mr-3 text-sm font-medium"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteAsset(asset.id)}
-                    className="text-red-600 hover:text-red-800 text-sm font-medium"
-                  >
-                    Delete
-                  </button>
-                </td>
+            {loading && assets.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="text-center py-8 text-gray-500 font-medium">Loading assets...</td>
               </tr>
-            ))}
+            ) : assets.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="text-center py-8 text-gray-500 font-medium">No assets found.</td>
+              </tr>
+            ) : (
+              assets.map((asset) => (
+                <tr key={asset.id}>
+                  <td className="font-medium">{asset.name}</td>
+                  <td>{asset.categories?.name || 'Uncategorized'}</td>
+                  <td>{asset.locations?.name || 'No Location'}</td>
+                  <td className="text-sm text-gray-500">{asset.serial}</td>
+                  <td>{asset.assigned_to_name || 'Unassigned'}</td>
+                  <td>
+                    <span className={`badge ${
+                      asset.status === 'Active' ? 'badge-active' : 
+                      asset.status === 'Disposed' ? 'badge-danger' : 'badge-pending'
+                    }`}>
+                      {asset.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button 
+                      onClick={() => openQRModal(asset)}
+                      className="text-green-600 hover:text-green-800 mr-3 text-sm font-medium"
+                    >
+                      QR Code
+                    </button>
+                    <button 
+                      onClick={() => handleOpenAssetModal(asset)}
+                      className="text-blue-600 hover:text-blue-800 mr-3 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteAsset(asset.id)}
+                      className="text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -217,6 +267,12 @@ export default function Assets() {
               <h2 className="text-xl font-bold">{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
               <button onClick={() => setShowAssetModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
+
+            {error && (
+              <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded">
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleAssetSubmit} className="space-y-4">
               <div>
@@ -237,18 +293,42 @@ export default function Assets() {
                   <select
                     required
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={assetFormData.category}
-                    onChange={(e) => setAssetFormData({...assetFormData, category: e.target.value})}
+                    value={assetFormData.category_id}
+                    onChange={(e) => setAssetFormData({...assetFormData, category_id: e.target.value})}
                   >
-                    <option value="">Select</option>
-                    <option value="Laptop">Laptop</option>
-                    <option value="Fan">Fan</option>
-                    <option value="Chair">Chair</option>
-                    <option value="Projector">Projector</option>
-                    <option value="Furniture">Furniture</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Other">Other</option>
+                    <option value="">Select Category</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Location</label>
+                  <select
+                    required
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={assetFormData.location_id}
+                    onChange={(e) => setAssetFormData({...assetFormData, location_id: e.target.value})}
+                  >
+                    <option value="">Select Location</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Serial Number</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
+                    value={assetFormData.serial}
+                    onChange={(e) => setAssetFormData({...assetFormData, serial: e.target.value})}
+                    placeholder="S/N-12345"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Status</label>
@@ -265,24 +345,12 @@ export default function Assets() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Serial Number</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
-                  value={assetFormData.serial}
-                  onChange={(e) => setAssetFormData({...assetFormData, serial: e.target.value})}
-                  placeholder="S/N-12345"
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Assigned To</label>
                 <input
                   type="text"
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={assetFormData.assignedTo}
-                  onChange={(e) => setAssetFormData({...assetFormData, assignedTo: e.target.value})}
+                  value={assetFormData.assigned_to_name}
+                  onChange={(e) => setAssetFormData({...assetFormData, assigned_to_name: e.target.value})}
                   placeholder="e.g. John Doe"
                 />
               </div>
@@ -297,9 +365,10 @@ export default function Assets() {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition disabled:opacity-50"
                 >
-                  {editingAsset ? "Update Asset" : "Save Asset"}
+                  {isSubmitting ? "Saving..." : (editingAsset ? "Update Asset" : "Save Asset")}
                 </button>
               </div>
             </form>

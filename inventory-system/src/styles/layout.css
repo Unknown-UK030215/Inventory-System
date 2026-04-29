@@ -1,13 +1,18 @@
 /* Layout Styles */
 
 .sidebar {
-  width: 16rem;
-  height: 100vh;
   padding: 1rem;
   color: var(--text-on-dark);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .sidebar {
+    width: 16rem;
+    height: 100vh;
+  }
 }
 
 .admin-sidebar {

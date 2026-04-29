@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useInventory } from "../../context/InventoryContext";
 import { 
   BarChart, 
   Bar, 
@@ -11,21 +12,43 @@ import {
 } from 'recharts';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-
-  const healthData = [
-    { status: 'Active', count: 85, color: '#10B981' }, // green-500
-    { status: 'Minor Issue', count: 15, color: '#3B82F6' }, // blue-500
-    { status: 'In Repair', count: 12, color: '#F59E0B' }, // amber-500
-    { status: 'Disposed', count: 21, color: '#EF4444' }, // red-500
-  ];
+  const { assets, loading, reports } = useInventory();
   
-  const stats = [
-    { label: "Total Assets", value: "133", color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
-    { label: "Active", value: "85", color: "text-green-600", bg: "bg-green-50", icon: "✅" },
-    { label: "Issues/Repair", value: "27", color: "text-yellow-600", bg: "bg-yellow-50", icon: "🛠️" },
-    { label: "Disposed", value: "21", color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
-  ];
+  const [stats, setStats] = useState([
+    { label: "Total Assets", value: "0", color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
+    { label: "Active", value: "0", color: "text-green-600", bg: "bg-green-50", icon: "✅" },
+    { label: "Issues/Repair", value: "0", color: "text-yellow-600", bg: "bg-yellow-50", icon: "🛠️" },
+    { label: "Disposed", value: "0", color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
+  ]);
+  const [healthData, setHealthData] = useState([
+    { status: 'Active', count: 0, color: '#10B981' },
+    { status: 'Minor Issue', count: 0, color: '#3B82F6' },
+    { status: 'In Repair', count: 0, color: '#F59E0B' },
+    { status: 'Disposed', count: 0, color: '#EF4444' },
+  ]);
+
+  useEffect(() => {
+    if (assets) {
+      const total = assets.length;
+      const active = assets.filter(a => a.status === 'Active').length;
+      const repair = assets.filter(a => a.status === 'Under Repair').length;
+      const disposed = assets.filter(a => a.status === 'Disposed').length;
+
+      setStats([
+        { label: "Total Assets", value: total.toString(), color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
+        { label: "Active", value: active.toString(), color: "text-green-600", bg: "bg-green-50", icon: "✅" },
+        { label: "Issues/Repair", value: repair.toString(), color: "text-yellow-600", bg: "bg-yellow-50", icon: "🛠️" },
+        { label: "Disposed", value: disposed.toString(), color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
+      ]);
+
+      setHealthData([
+        { status: 'Active', count: active, color: '#10B981' },
+        { status: 'Minor Issue', count: assets.filter(a => a.status === 'Minor Issue').length, color: '#3B82F6' },
+        { status: 'In Repair', count: assets.filter(a => a.status === 'Under Repair').length, color: '#F59E0B' },
+        { status: 'Disposed', count: disposed, color: '#EF4444' },
+      ]);
+    }
+  }, [assets]);
 
   const shortcuts = [
     { title: "Add Asset", icon: "➕", path: "/admin/assets" },
@@ -115,22 +138,21 @@ export default function Dashboard() {
           <div className="card h-full">
             <h2 className="text-lg font-bold mb-4 text-gray-700">Recent Activity</h2>
             <div className="space-y-4">
-              {[
-                { user: "Admin", action: "Created staff account for", target: "Jane Smith", time: "2 hours ago" },
-                { user: "Admin", action: "Added new asset", target: "MacBook Pro 16", time: "5 hours ago" },
-                { user: "Staff (John)", action: "Reported issue for", target: "Industrial Floor Fan", time: "1 day ago" },
-                { user: "Admin", action: "Disposed asset", target: "Old Wooden Chair", time: "2 days ago" },
-              ].map((activity, i) => (
-                <div key={i} className="flex items-start gap-3 border-b border-gray-50 pb-3 last:border-0">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                  <div>
-                    <p className="text-sm text-gray-800">
-                      <span className="font-bold">{activity.user}</span> {activity.action} <span className="font-semibold">{activity.target}</span>
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+              {reports.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No recent activity found.</p>
+              ) : (
+                reports.slice(0, 5).map((report, i) => (
+                  <div key={i} className="flex items-start gap-3 border-b border-gray-50 pb-3 last:border-0">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                    <div>
+                      <p className="text-sm text-gray-800">
+                        <span className="font-bold">{report.reported_by}</span> reported <span className="font-semibold">{report.type}</span> on {report.asset_name}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(report.created_at).toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <button className="w-full mt-6 text-blue-600 text-sm font-semibold hover:underline">
               View All Activity

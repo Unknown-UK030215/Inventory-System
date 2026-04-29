@@ -1,20 +1,19 @@
 import { useState } from "react";
+import { supabase } from "../../lib/supabase";
+import { useInventory } from "../../context/InventoryContext";
 
 export default function Users() {
-  const [users, setUsers] = useState([
-    { id: 1, name: "John Doe", email: "john@example.com", role: "Staff", department: "IT", status: "Active" },
-    { id: 2, name: "Jane Smith", email: "jane@example.com", role: "Staff", department: "Accounting", status: "Active" },
-    { id: 3, name: "Mike Wilson", email: "mike@example.com", role: "Staff", department: "HR", status: "Inactive" },
-  ]);
-
+  const { users, loading, error, refreshData } = useInventory();
+  
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    username: "",
     email: "",
-    department: "",
     password: "",
-    status: "Active"
+    role: "staff"
   });
 
   const handleOpenModal = (user = null) => {
@@ -22,19 +21,19 @@ export default function Users() {
       setEditingUser(user);
       setFormData({
         name: user.name,
+        username: user.username || "",
         email: user.email,
-        department: user.department,
-        password: "", // Don't show password
-        status: user.status
+        password: user.password || "",
+        role: user.role || "staff"
       });
     } else {
       setEditingUser(null);
       setFormData({
         name: "",
+        username: "",
         email: "",
-        department: "",
         password: "",
-        status: "Active"
+        role: "staff"
       });
     }
     setShowModal(true);
@@ -45,26 +44,76 @@ export default function Users() {
     setEditingUser(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingUser) {
-      // Update existing user
-      setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...formData } : u));
-    } else {
-      // Create new user
-      const newUser = {
-        id: users.length + 1,
-        ...formData,
-        role: "Staff"
-      };
-      setUsers([...users, newUser]);
+    setIsSubmitting(true);
+
+    try {
+      if (!supabase) throw new Error("Database not connected.");
+
+      if (editingUser) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            name: formData.name,
+            username: formData.username,
+            password: formData.password,
+            role: formData.role || "staff"
+          })
+          .eq('id', editingUser.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // 1. Create the user in Supabase Auth first so Forgot Password works
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password, // This will be their initial password
+          options: {
+            data: {
+              name: formData.name,
+              role: formData.role || "staff"
+            }
+          }
+        });
+
+        if (authError) throw authError;
+
+        // 2. Create the user in your public users table
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([{
+            id: authData.user.id, // Use the ID from Auth to keep them synced
+            name: formData.name,
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+            role: formData.role || "staff"
+          }]);
+
+        if (insertError) throw insertError;
+      }
+      
+      handleCloseModal();
+    } catch (err) {
+      alert("Error saving user: " + err.message);
+    } finally {
+      setIsSubmitting(false);
     }
-    handleCloseModal();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this staff account?")) {
-      setUsers(users.filter(u => u.id !== id));
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this account?")) {
+      try {
+        if (!supabase) throw new Error("Database not connected.");
+        const { error: deleteError } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', id);
+
+        if (deleteError) throw deleteError;
+      } catch (err) {
+        alert("Error deleting user: " + err.message);
+      }
     }
   };
 
@@ -83,44 +132,65 @@ export default function Users() {
         </button>
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
+          <p className="font-bold">Error loading users:</p>
+          <p className="text-sm">{error}</p>
+          <button 
+            onClick={() => refreshData()} 
+            className="mt-2 text-xs bg-red-700 text-white px-2 py-1 rounded hover:bg-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="card overflow-hidden p-0">
         <table className="data-table">
           <thead>
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Department</th>
-              <th>Status</th>
+              <th>Role</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td className="font-medium">{user.name}</td>
-                <td>{user.email}</td>
-                <td>{user.department}</td>
-                <td>
-                  <span className={`badge ${user.status === 'Active' ? 'badge-active' : 'badge-danger'}`}>
-                    {user.status}
-                  </span>
-                </td>
-                <td>
-                  <button 
-                    onClick={() => handleOpenModal(user)}
-                    className="text-blue-600 hover:underline mr-3 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(user.id)}
-                    className="text-red-600 hover:underline text-sm"
-                  >
-                    Delete
-                  </button>
-                </td>
+            {loading && users.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="text-center py-8 text-gray-500">Loading users...</td>
               </tr>
-            ))}
+            ) : users.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="text-center py-8 text-gray-500">No users found.</td>
+              </tr>
+            ) : (
+              users.map((user) => (
+                <tr key={user.id}>
+                  <td className="font-medium">{user.name}</td>
+                  <td>{user.email}</td>
+                  <td>
+                    <span className={`badge ${user.role === 'admin' ? 'badge-active' : 'badge-pending'}`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td>
+                    <button 
+                      onClick={() => handleOpenModal(user)}
+                      className="text-blue-600 hover:underline mr-3 text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(user.id)}
+                      className="text-red-600 hover:underline text-sm"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -133,6 +203,12 @@ export default function Users() {
               <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
+            {error && (
+              <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Full Name</label>
@@ -143,6 +219,18 @@ export default function Users() {
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   placeholder="John Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Username</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={formData.username}
+                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  placeholder="johndoe123"
                 />
               </div>
 
@@ -159,29 +247,10 @@ export default function Users() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Department</label>
-                <select
-                  required
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={formData.department}
-                  onChange={(e) => setFormData({...formData, department: e.target.value})}
-                >
-                  <option value="">Select Department</option>
-                  <option value="IT">IT Department</option>
-                  <option value="Accounting">Accounting</option>
-                  <option value="HR">HR Department</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Sales">Sales</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">
-                  {editingUser ? "New Password (leave blank to keep current)" : "Password"}
-                </label>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Password</label>
                 <input
                   type="password"
-                  required={!editingUser}
+                  required
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -190,14 +259,15 @@ export default function Users() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Account Status</label>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Role</label>
                 <select
+                  required
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
                 >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
 
@@ -211,9 +281,10 @@ export default function Users() {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition disabled:opacity-50"
                 >
-                  {editingUser ? "Update Account" : "Create Account"}
+                  {isSubmitting ? "Saving..." : (editingUser ? "Update Account" : "Create Account")}
                 </button>
               </div>
             </form>
