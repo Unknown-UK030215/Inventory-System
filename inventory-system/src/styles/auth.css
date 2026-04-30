@@ -1,5 +1,16 @@
 /* Login & Forgot Password Styles */
 
+.login-page-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .role-toggle {
   display: flex;
   background-color: #f3f4f6;
@@ -29,11 +40,56 @@
 
 .login-card {
   padding: 2rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  width: 24rem;
-  background-color: var(--secondary-bg);
-  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 1rem;
+  width: 26rem;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1), 0 0 40px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 80px;
+  background-color: #ff6700;
+  border-top: 4px solid #ff6700;
+  clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 100%);
+  z-index: 1;
+  opacity: 0.9;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 90px;
+  background-image: url('../assets/hero.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: bottom right;
+  z-index: 2;
+  opacity: 0.6;
+  filter: brightness(0) invert(1);
+}
+
+.login-form-content {
+  position: relative;
+  z-index: 5;
+  margin-bottom: 40px;
+}
+
+.login-logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
 }
 
 .login-input {
@@ -47,4 +103,18 @@
 .login-input:focus {
   outline: none;
   ring: 2px solid var(--admin-accent);
+}
+
+.login-button {
+  background-color: #FF5F1F !important;
+  color: white !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.login-button:hover:not(:disabled) {
+  background-color: #e04e10 !important;
+  transform: translateY(-1px);
 }

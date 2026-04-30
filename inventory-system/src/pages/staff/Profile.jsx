@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [adminUser, setAdminUser] = useState(null);
+  const [staffUser, setStaffUser] = useState(null);
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,14 +20,14 @@ export default function Profile() {
   const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
-    const fetchAdminData = async () => {
-      const storedAdmin = localStorage.getItem("admin_user");
-      if (storedAdmin) {
-        const parsed = JSON.parse(storedAdmin);
+    const fetchStaffData = async () => {
+      const storedStaff = localStorage.getItem("staff_user");
+      if (storedStaff) {
+        const parsed = JSON.parse(storedStaff);
         // Fetch latest data from database
         if (supabase) {
           const { data, error } = await supabase
-            .from('admin_credentials')
+            .from('users')
             .select('*')
             .eq('id', parsed.id)
             .single();
@@ -36,15 +36,14 @@ export default function Profile() {
             setUsername(data.username || "");
             setName(data.name || "");
             setEmail(data.email || "");
-            // Update adminUser with latest DB data
-            setAdminUser(data);
-            localStorage.setItem("admin_user", JSON.stringify(data));
+            setStaffUser(data);
+            localStorage.setItem("staff_user", JSON.stringify(data));
           }
         }
       }
     };
     
-    fetchAdminData();
+    fetchStaffData();
   }, []);
 
   const logout = async () => {
@@ -52,7 +51,7 @@ export default function Profile() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("supabase_session");
-    localStorage.removeItem("admin_user");
+    localStorage.removeItem("staff_user");
     navigate("/");
   };
 
@@ -65,28 +64,24 @@ export default function Profile() {
     try {
       if (!supabase) throw new Error("Database not connected.");
 
-      // Check if email changed - if so, we'll need to verify it via Supabase Auth
-      const oldEmail = adminUser.email || "";
+      const oldEmail = staffUser.email || "";
       const emailChanged = email !== oldEmail && email !== "";
 
       const { error } = await supabase
-        .from('admin_credentials')
+        .from('users')
         .update({ username, name, email })
-        .eq('id', adminUser.id);
+        .eq('id', staffUser.id);
 
       if (error) throw error;
       
-      // Update local storage
-      const updatedUser = { ...adminUser, username, name, email };
-      localStorage.setItem("admin_user", JSON.stringify(updatedUser));
-      setAdminUser(updatedUser);
+      const updatedUser = { ...staffUser, username, name, email };
+      localStorage.setItem("staff_user", JSON.stringify(updatedUser));
+      setStaffUser(updatedUser);
       
       if (emailChanged) {
-        // 1. Update the email in Supabase Auth first
         const { error: authEmailError } = await supabase.auth.updateUser({ email });
         if (authEmailError) throw authEmailError;
 
-        // 2. Trigger reset password to send the OTP code
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
         if (!resetError) {
           setShowVerifyModal(true);
@@ -143,28 +138,20 @@ export default function Profile() {
     try {
       if (!supabase) throw new Error("Database not connected.");
 
-      // 1. Update the password in Supabase Auth (This is what handles the actual login)
-      const { data: authData, error: authError } = await supabase.auth.updateUser({ 
+      const { error: authError } = await supabase.auth.updateUser({ 
         password: newPassword 
       });
       
-      if (authError) {
-        console.error("Auth password update failed:", authError);
-        throw new Error("Failed to update security credentials: " + authError.message);
-      }
+      if (authError) throw authError;
 
-      // 2. Update the password in our database table (This is for your reference)
       const { error: dbError } = await supabase
-        .from('admin_credentials')
+        .from('users')
         .update({ password: newPassword })
-        .eq('id', adminUser.id);
+        .eq('id', staffUser.id);
       
-      if (dbError) {
-        console.error("Database password update failed:", dbError);
-        // We don't throw here because the Auth update already succeeded
-      }
+      if (dbError) console.error("Database password update failed:", dbError);
       
-      setMessage("Password updated successfully in all systems! The old password will no longer work.");
+      setMessage("Password updated successfully!");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
@@ -177,8 +164,8 @@ export default function Profile() {
   return (
     <div className="page-container max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Admin Settings</h1>
-        <p className="text-gray-500">Manage your administrative credentials</p>
+        <h1 className="text-2xl font-bold">Profile Settings</h1>
+        <p className="text-gray-500">Manage your staff account information</p>
       </div>
 
       {message && (
@@ -202,7 +189,7 @@ export default function Profile() {
               <input
                 type="text"
                 required
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -212,7 +199,7 @@ export default function Profile() {
               <input
                 type="text"
                 required
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -222,30 +209,27 @@ export default function Profile() {
               <input
                 type="email"
                 required
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
               />
-              <p className="text-xs text-gray-500 mt-1">Used for OTP password recovery.</p>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition disabled:opacity-50"
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition disabled:opacity-50 font-bold"
             >
               {loading ? "Processing..." : "Update Profile"}
             </button>
           </form>
         </div>
 
-        {/* Verification Modal */}
         {showVerifyModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
               <h2 className="text-xl font-bold mb-2">Verify Email</h2>
               <p className="text-sm text-gray-500 mb-4">
-                Enter the 6-digit code sent to <strong>{email}</strong> to verify your recovery email.
+                Enter the code sent to <strong>{email}</strong>.
               </p>
               
               <form onSubmit={handleVerifyOTP} className="space-y-4">
@@ -253,7 +237,7 @@ export default function Profile() {
                   type="text"
                   required
                   maxLength="6"
-                  className="w-full p-3 border rounded text-center text-2xl tracking-widest font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-3 border rounded text-center text-2xl tracking-widest font-bold focus:ring-2 focus:ring-green-500 outline-none"
                   placeholder="000000"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
@@ -264,14 +248,14 @@ export default function Profile() {
                     onClick={() => setShowVerifyModal(false)}
                     className="flex-1 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                   >
-                    Skip for Now
+                    Skip
                   </button>
                   <button
                     type="submit"
                     disabled={verifying}
-                    className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                   >
-                    {verifying ? "Verifying..." : "Verify Code"}
+                    {verifying ? "Verifying..." : "Verify"}
                   </button>
                 </div>
               </form>
@@ -287,18 +271,18 @@ export default function Profile() {
               <input
                 type="password"
                 required
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1 text-gray-700">Confirm New Password</label>
+              <label className="block text-sm font-semibold mb-1 text-gray-700">Confirm Password</label>
               <input
                 type="password"
                 required
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
@@ -307,7 +291,7 @@ export default function Profile() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-black transition disabled:opacity-50"
+              className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-black transition disabled:opacity-50 font-bold"
             >
               {loading ? "Updating..." : "Update Password"}
             </button>

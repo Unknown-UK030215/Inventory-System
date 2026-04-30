@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import psuLogo from "../../assets/Psu_Library.png";
+import psuBg from "../../assets/PSU-new.jpg";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -179,19 +181,28 @@ export default function Login() {
 
   if (isForgotPassword) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div 
+        className="login-page-container" 
+        style={{ 
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${psuBg})`
+        }}
+      >
         <form
           onSubmit={handleResetPassword}
           className="login-card"
         >
-          <h2 className="text-2xl mb-2 font-bold text-center">Reset {role.charAt(0).toUpperCase() + role.slice(1)} Password</h2>
-          <p className="text-gray-500 text-center mb-6">
-            {resetSent 
-              ? "Password updated successfully!" 
-              : resetStep === 1 
-                ? `Enter your ${role} email to receive an authentication code.`
-                : "Enter the code sent to your email and your new password."}
-          </p>
+          <div className="login-form-content">
+            <div className="flex justify-center mb-4">
+              <img src={psuLogo} alt="PSU Logo" className="login-logo" />
+            </div>
+            <h2 className="text-2xl mb-2 font-bold text-center">Reset {role.charAt(0).toUpperCase() + role.slice(1)} Password</h2>
+            <p className="text-gray-500 text-center mb-6">
+              {resetSent 
+                ? "Password updated successfully!" 
+                : resetStep === 1 
+                  ? `Enter your ${role} email to receive an authentication code.`
+                  : "Enter the code sent to your email and your new password."}
+            </p>
 
           {error && (
             <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded text-center">
@@ -216,9 +227,7 @@ export default function Login() {
                   </div>
                   <button 
                     disabled={loading || cooldown > 0}
-                    className={`w-full p-2 rounded font-bold text-white mb-4 disabled:opacity-50 ${
-                      role === 'admin' ? 'bg-gray-900 hover:bg-black' : 'bg-green-600 hover:bg-green-700'
-                    }`}
+                    className="w-full p-2 rounded font-bold text-white mb-4 disabled:opacity-50 login-button"
                   >
                     {loading 
                       ? "Processing..." 
@@ -255,9 +264,7 @@ export default function Login() {
                     <button 
                       type="submit"
                       disabled={loading || !otp || !newPassword}
-                      className={`w-full p-2 rounded font-bold text-white mb-2 disabled:opacity-50 ${
-                        role === 'admin' ? 'bg-gray-900 hover:bg-black' : 'bg-green-600 hover:bg-green-700'
-                      }`}
+                      className="w-full p-2 rounded font-bold text-white mb-2 disabled:opacity-50 login-button"
                     >
                       {loading ? "Verifying..." : "Verify and Reset Password"}
                     </button>
@@ -293,21 +300,31 @@ export default function Login() {
           >
             ← Back to Login
           </button>
-        </form>
+        </div>
+      </form>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-100">
-
+    <div 
+      className="login-page-container" 
+      style={{ 
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${psuBg})`
+      }}
+    >
       <form
         onSubmit={handleLogin}
         className="login-card"
       >
+        <div className="login-form-content">
+          <div className="flex justify-center mb-4">
+            <img src={psuLogo} alt="PSU Logo" className="login-logo" />
+          </div>
 
-        <h2 className="text-2xl mb-2 font-bold text-center">Welcome Back</h2>
-        <p className="text-gray-500 text-center mb-6">Please login to your account</p>
+          <h2 className="text-2xl mb-2 font-bold text-center">Welcome Back</h2>
+          <p className="text-gray-500 text-center mb-6">Inventory Management System</p>
+
 
         {error && (
           <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded text-center">
@@ -369,14 +386,12 @@ export default function Login() {
 
         <button
           disabled={loading}
-          className={`w-full p-2 rounded font-bold text-white transition-colors disabled:opacity-50 ${
-            role === 'admin' ? 'bg-gray-900 hover:bg-black' : 'bg-green-600 hover:bg-green-700'
-          }`}
+          className="w-full p-2 rounded font-bold text-white transition-all disabled:opacity-50 login-button"
         >
           {loading ? "Logging in..." : `Login as ${role.charAt(0).toUpperCase() + role.slice(1)}`}
         </button>
-
-      </form>
+      </div>
+    </form>
 
     </div>
   );

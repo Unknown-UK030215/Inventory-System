@@ -20,6 +20,7 @@ const StaffDashboard = lazy(() => import("./pages/staff/Dashboard"));
 const MyAssets = lazy(() => import("./pages/staff/MyAssets"));
 const QRScanner = lazy(() => import("./pages/staff/QRScanner"));
 const MyReports = lazy(() => import("./pages/staff/MyReports"));
+const StaffProfile = lazy(() => import("./pages/staff/Profile"));
 
 // Simple loading fallback
 const PageLoader = () => (
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="my-assets" element={<MyAssets />} />
           <Route path="scan" element={<QRScanner />} />
           <Route path="reports" element={<MyReports />} />
+          <Route path="profile" element={<StaffProfile />} />
         </Route>
 
       </Routes>

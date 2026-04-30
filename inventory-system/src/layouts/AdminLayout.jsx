@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import psuLibraryLogo from "../assets/Psu_Library.png";
+import psuBg from "../assets/PSU-new.jpg";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -21,14 +23,16 @@ export default function AdminLayout() {
     <div className="flex h-screen overflow-hidden">
       {/* SIDEBAR - Desktop */}
       <aside className="hidden lg:flex sidebar admin-sidebar w-64 flex-col">
-        <h1 className="text-xl font-bold mb-6">Admin Panel</h1>
+        <div className="flex items-center gap-3 mb-8 px-2">
+          <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
+          <h1 className="text-lg font-bold">Admin Panel</h1>
+        </div>
         <nav className="flex flex-col gap-3">
           <NavLink to="/admin/dashboard" className="nav-link">Dashboard</NavLink>
           <NavLink to="/admin/assets" className="nav-link">Assets</NavLink>
           <NavLink to="/admin/users" className="nav-link">Users</NavLink>
           <NavLink to="/admin/reports" className="nav-link">Staff Reports</NavLink>
           <NavLink to="/admin/disposed" className="nav-link">Disposed</NavLink>
-          <NavLink to="/admin/profile" className="nav-link">Profile Settings</NavLink>
         </nav>
       </aside>
 
@@ -39,9 +43,10 @@ export default function AdminLayout() {
           onClick={closeMobileMenu}
         >
           <aside className="w-64 h-full bg-white p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-xl font-bold text-gray-800">Admin Panel</h1>
-              <button onClick={closeMobileMenu} className="text-2xl text-gray-500">&times;</button>
+            <div className="flex items-center gap-3 mb-8 relative">
+              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl text-gray-500">&times;</button>
+              <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
+              <h1 className="text-lg font-bold text-gray-800">Admin Panel</h1>
             </div>
             <nav className="flex flex-col gap-4">
               <NavLink to="/admin/dashboard" className="nav-link mobile" onClick={closeMobileMenu}>Dashboard</NavLink>
@@ -49,7 +54,6 @@ export default function AdminLayout() {
               <NavLink to="/admin/users" className="nav-link mobile" onClick={closeMobileMenu}>Users</NavLink>
               <NavLink to="/admin/reports" className="nav-link mobile" onClick={closeMobileMenu}>Staff Reports</NavLink>
               <NavLink to="/admin/disposed" className="nav-link mobile" onClick={closeMobileMenu}>Disposed</NavLink>
-              <NavLink to="/admin/profile" className="nav-link mobile" onClick={closeMobileMenu}>Profile Settings</NavLink>
             </nav>
           </aside>
         </div>
@@ -66,20 +70,29 @@ export default function AdminLayout() {
             >
               <span className="text-2xl">☰</span>
             </button>
-            <h2 className="text-lg font-semibold text-gray-800 truncate">Inventory System</h2>
           </div>
 
-          <button
-            onClick={logout}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <NavLink 
+              to="/admin/profile" 
+              className="group"
+              title="Profile Settings"
+            >
+              <div className="sidebar-profile-circle border-gray-200 group-hover:ring-2 group-hover:ring-[var(--psu-orange)] transition-all">
+                <img src={`https://ui-avatars.com/api/?name=Admin&background=FF5F1F&color=fff`} alt="Admin Profile" className="profile-img" />
+              </div>
+            </NavLink>
+          </div>
         </header>
 
         {/* PAGE CONTENT */}
-        <main className="flex-1 overflow-auto p-4 lg:p-8 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
+        <main 
+          className="flex-1 overflow-auto p-4 lg:p-8 dashboard-bg-container"
+          style={{ 
+            backgroundImage: `linear-gradient(rgba(243, 244, 246, 0.85), rgba(243, 244, 246, 0.85)), url(${psuBg})`
+          }}
+        >
+          <div className="max-w-7xl mx-auto relative z-10">
             <Outlet />
           </div>
         </main>

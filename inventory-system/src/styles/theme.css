@@ -2,16 +2,17 @@
   /* Colors */
   --primary-bg: #f3f4f6;
   --secondary-bg: #ffffff;
+  --psu-orange: #FF5F1F;
   
   /* Admin Theme */
   --admin-sidebar: #111827;
   --admin-sidebar-text: #ffffff;
-  --admin-accent: #3b82f6;
+  --admin-accent: var(--psu-orange);
   
   /* Staff Theme */
-  --staff-sidebar: #064e3b;
-  --staff-sidebar-text: #ffffff;
-  --staff-accent: #10b981;
+  --staff-sidebar: #ffffff;
+  --staff-sidebar-text: #1f2937;
+  --staff-accent: var(--psu-orange);
 
   /* Text States */
   --text-main: #1f2937;
