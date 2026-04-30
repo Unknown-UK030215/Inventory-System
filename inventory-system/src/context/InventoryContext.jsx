@@ -22,12 +22,13 @@ export function InventoryProvider({ children }) {
       setLoading(true);
       setError(null);
 
-      const [assetsRes, catsRes, locsRes, reportsRes, usersRes] = await Promise.all([
+      const [assetsRes, catsRes, locsRes, reportsRes, usersRes, adminsRes] = await Promise.all([
         supabase.from('assets').select('*, categories(name), locations(name)'),
         supabase.from('categories').select('*').order('name'),
         supabase.from('locations').select('*').order('name'),
-        supabase.from('reports').select('*'),
-        supabase.from('users').select('*').order('name')
+        supabase.from('reports').select('*').order('reported_at', { ascending: false }),
+        supabase.from('users').select('*').order('name'),
+        supabase.from('admin_credentials').select('*').order('name')
       ]);
 
       if (assetsRes.error) {
@@ -50,12 +51,20 @@ export function InventoryProvider({ children }) {
         console.error('Users fetch error:', usersRes.error);
         throw new Error(`Users: ${usersRes.error.message}`);
       }
+      if (adminsRes.error) {
+        console.error('Admins fetch error:', adminsRes.error);
+        throw new Error(`Admins: ${adminsRes.error.message}`);
+      }
 
       setAssets(assetsRes.data || []);
       setCategories(catsRes.data || []);
       setLocations(locsRes.data || []);
       setReports(reportsRes.data || []);
-      setUsers(usersRes.data || []);
+      
+      // Combine users and admins, adding role to each
+      const staffList = (usersRes.data || []).map(u => ({ ...u, role: 'staff' }));
+      const adminList = (adminsRes.data || []).map(a => ({ ...a, role: 'admin' }));
+      setUsers([...adminList, ...staffList]);
     } catch (err) {
       console.error('Error fetching inventory data:', err);
       setError(err.message);
@@ -77,6 +86,7 @@ export function InventoryProvider({ children }) {
       .on('postgres_changes', { event: '*', table: 'categories' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'locations' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'users' }, () => fetchData())
+      .on('postgres_changes', { event: '*', table: 'admin_credentials' }, () => fetchData())
       .subscribe();
 
     return () => {

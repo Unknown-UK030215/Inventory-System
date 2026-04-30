@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import psuLibraryLogo from "../assets/Psu_Library.png";
-import psuBg from "../assets/PSU-new.jpg";
 
 export default function StaffLayout() {
   const navigate = useNavigate();
@@ -25,7 +24,9 @@ export default function StaffLayout() {
       {/* SIDEBAR - Desktop */}
       <aside className="hidden lg:flex sidebar staff-sidebar w-64 flex-col">
         <div className="flex items-center gap-3 mb-8 px-2">
-          <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
+          <div className="sidebar-profile-circle border-gray-200">
+            <img src={`https://ui-avatars.com/api/?name=Staff&background=FF5F1F&color=fff`} alt="Staff Profile" className="profile-img" />
+          </div>
           <h1 className="text-lg font-bold text-gray-800">Staff Panel</h1>
         </div>
 
@@ -49,7 +50,9 @@ export default function StaffLayout() {
           >
             <div className="flex items-center gap-3 mb-8 relative text-white">
               <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl">&times;</button>
-              <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
+              <div className="sidebar-profile-circle border-gray-200">
+                <img src={`https://ui-avatars.com/api/?name=Staff&background=FF5F1F&color=fff`} alt="Staff Profile" className="profile-img" />
+              </div>
               <h1 className="text-lg font-bold">Staff Panel</h1>
             </div>
             <nav className="flex flex-col gap-4 text-white">
@@ -90,12 +93,7 @@ export default function StaffLayout() {
         </header>
 
         {/* PAGE CONTENT */}
-        <main 
-          className="flex-1 overflow-auto p-4 lg:p-8 dashboard-bg-container"
-          style={{ 
-            backgroundImage: `linear-gradient(rgba(243, 244, 246, 0.85), rgba(243, 244, 246, 0.85)), url(${psuBg})`
-          }}
-        >
+        <main className="flex-1 overflow-auto p-4 lg:p-8 bg-white">
           <div className="max-w-7xl mx-auto relative z-10">
             <Outlet />
           </div>

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import psuLibraryLogo from "../assets/Psu_Library.png";
-import psuBg from "../assets/PSU-new.jpg";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -86,12 +85,7 @@ export default function AdminLayout() {
         </header>
 
         {/* PAGE CONTENT */}
-        <main 
-          className="flex-1 overflow-auto p-4 lg:p-8 dashboard-bg-container"
-          style={{ 
-            backgroundImage: `linear-gradient(rgba(243, 244, 246, 0.85), rgba(243, 244, 246, 0.85)), url(${psuBg})`
-          }}
-        >
+        <main className="flex-1 overflow-auto p-4 lg:p-8 bg-white">
           <div className="max-w-7xl mx-auto relative z-10">
             <Outlet />
           </div>

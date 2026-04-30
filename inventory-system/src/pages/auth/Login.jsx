@@ -183,9 +183,7 @@ export default function Login() {
     return (
       <div 
         className="login-page-container" 
-        style={{ 
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${psuBg})`
-        }}
+        style={{ backgroundImage: `url(${psuBg})` }}
       >
         <form
           onSubmit={handleResetPassword}
@@ -309,9 +307,7 @@ export default function Login() {
   return (
     <div 
       className="login-page-container" 
-      style={{ 
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${psuBg})`
-      }}
+      style={{ backgroundImage: `url(${psuBg})` }}
     >
       <form
         onSubmit={handleLogin}
@@ -392,7 +388,6 @@ export default function Login() {
         </button>
       </div>
     </form>
-
     </div>
   );
 }

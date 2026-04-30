@@ -20,10 +20,11 @@ export default function AdminReports() {
       if (reportError) throw reportError;
 
       // Also update asset status if needed
-      if (newStatus === "Under Repair" || newStatus === "Disposed") {
+      if ((newStatus === "Under Repair" || newStatus === "Disposed" || newStatus === "Resolved") && assetSerial) {
+        const assetStatus = newStatus === "Resolved" ? "Active" : newStatus;
         const { error: assetError } = await supabase
           .from('assets')
-          .update({ status: newStatus })
+          .update({ status: assetStatus })
           .eq('serial', assetSerial);
         
         if (assetError) throw assetError;
@@ -75,8 +76,8 @@ export default function AdminReports() {
               reports.map((report) => (
                 <tr key={report.id}>
                   <td>
-                    <div className="font-medium text-gray-900">{report.asset_name || report.assetName || "Unknown Asset"}</div>
-                    <div className="text-xs text-gray-500 font-mono">{report.serial}</div>
+                    <div className="font-medium text-gray-900">{report.asset_name || "Unknown Asset"}</div>
+                    <div className="text-xs text-gray-500 font-mono">{report.serial || "N/A"}</div>
                   </td>
                   <td>
                     <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
@@ -90,8 +91,8 @@ export default function AdminReports() {
                   <td className="max-w-xs truncate text-sm" title={report.description}>
                     {report.description}
                   </td>
-                  <td className="text-sm">{report.reported_by || report.reportedBy}</td>
-                  <td className="text-sm text-gray-500">{new Date(report.created_at || report.reportedAt).toLocaleString()}</td>
+                  <td className="text-sm">{report.reported_by}</td>
+                  <td className="text-sm text-gray-500">{new Date(report.reported_at).toLocaleString()}</td>
                   <td>
                     <span className={`badge ${
                       report.status === 'Pending' ? 'badge-pending' :

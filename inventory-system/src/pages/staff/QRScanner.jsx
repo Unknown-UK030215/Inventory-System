@@ -78,7 +78,15 @@ export default function QRScanner() {
           ...foundAsset,
           problems: []
         });
-        setReports([]);
+        
+        // Fetch existing reports for this asset
+        const { data: existingReports } = await supabase
+          .from('reports')
+          .select('*')
+          .eq('serial', foundAsset.serial)
+          .order('reported_at', { ascending: false });
+
+        setReports(existingReports || []);
         setCameraError(null);
         stopScanner();
       } else {
@@ -142,12 +150,20 @@ export default function QRScanner() {
     e.preventDefault();
     if (!reportText.trim() || !scannedAsset) return;
 
+    if (!scannedAsset.id) {
+      alert("This asset is not registered in the system. Please contact the administrator to register this asset before reporting issues.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
       if (!supabase) throw new Error("Database not connected.");
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get user from localStorage instead of Supabase Auth
+      const storedUser = localStorage.getItem("staff_user");
+      const user = storedUser ? JSON.parse(storedUser) : null;
+      const reporterName = user?.name || user?.username || user?.email || "Unknown Staff";
       
       const { error } = await supabase
         .from('reports')
@@ -156,7 +172,7 @@ export default function QRScanner() {
           serial: scannedAsset.serial,
           type: reportType,
           description: reportText,
-          reported_by: user?.user_metadata?.full_name || user?.email || "Unknown Staff",
+          reported_by: reporterName,
           status: "Pending"
         }]);
 
@@ -164,10 +180,12 @@ export default function QRScanner() {
       
       // Update local state to show the new report
       const newReport = {
+        asset_name: scannedAsset.name,
+        serial: scannedAsset.serial,
         type: reportType,
         description: reportText,
-        reported_by: user?.user_metadata?.full_name || user?.email || "Unknown Staff",
-        created_at: new Date().toISOString(),
+        reported_by: reporterName,
+        reported_at: new Date().toISOString(),
         status: "Pending"
       };
       

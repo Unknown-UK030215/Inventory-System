@@ -9,6 +9,46 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Slant Design Overlay - Gradient from above to below */
+ .login-page-container::after {
+   content: '';
+   position: absolute;
+   bottom: 0;
+   left: 0;
+   right: 0;
+   height: 100%;
+   background: 
+    /* Right Side - 3 Layers with solid tiered opacity */
+     /* 1. Lower slant: Boldest */
+     linear-gradient(168deg, transparent 82%, rgba(255, 95, 31, 0.95) 82%),
+     /* 2. Middle slant: Medium opacity */
+     linear-gradient(168deg, transparent 77%, rgba(255, 95, 31, 0.5) 77%, rgba(255, 95, 31, 0.5) 82%, transparent 82%),
+     /* 3. Third slant: Lowest opacity */
+     linear-gradient(168deg, transparent 72%, rgba(255, 95, 31, 0.2) 72%, rgba(255, 95, 31, 0.2) 77%, transparent 77%),
+     /* Left Side - 2 Layers only, bigger and lower */
+     /* 1. Lower slant: Boldest - starts at 88%, ends at 100% */
+     linear-gradient(192deg, transparent 88%, rgba(255, 95, 31, 0.95) 88%),
+     /* 2. Second slant: Medium opacity - starts at 82%, ends at 92% */
+     linear-gradient(192deg, transparent 82%, rgba(255, 95, 31, 0.5) 82%, rgba(255, 95, 31, 0.5) 92%, transparent 92%);
+   z-index: 2;
+   pointer-events: none;
+ }
+
+.login-card {
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 1rem;
+  width: 26rem;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1), 0 0 40px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
 }
 
 .role-toggle {
@@ -38,52 +78,9 @@
   color: var(--text-muted);
 }
 
-.login-card {
-  padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 1rem;
-  width: 26rem;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1), 0 0 40px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.login-card::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 80px;
-  background-color: #ff6700;
-  border-top: 4px solid #ff6700;
-  clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 100%);
-  z-index: 1;
-  opacity: 0.9;
-}
-
-.login-card::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 90px;
-  background-image: url('../assets/hero.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: bottom right;
-  z-index: 2;
-  opacity: 0.6;
-  filter: brightness(0) invert(1);
-}
-
 .login-form-content {
   position: relative;
   z-index: 5;
-  margin-bottom: 40px;
 }
 
 .login-logo {
@@ -112,9 +109,16 @@
   opacity: 1 !important;
   border: none;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 95, 31, 0.4);
 }
 
 .login-button:hover:not(:disabled) {
   background-color: #e04e10 !important;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 95, 31, 0.6);
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(255, 95, 31, 0.4);
 }

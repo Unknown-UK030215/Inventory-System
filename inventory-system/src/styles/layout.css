@@ -120,10 +120,3 @@
   padding: 1.5rem;
   overflow-y: auto;
 }
-
-.dashboard-bg-container {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}

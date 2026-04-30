@@ -146,9 +146,9 @@ export default function Dashboard() {
                     <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
                     <div>
                       <p className="text-sm text-gray-800">
-                        <span className="font-bold">{report.reported_by}</span> reported <span className="font-semibold">{report.type}</span> on {report.asset_name}
+                        <span className="font-bold">{report.reported_by}</span> reported <span className="font-semibold">{report.type}</span> on {report.asset_name || "Unknown Asset"}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(report.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(report.reported_at).toLocaleString()}</p>
                     </div>
                   </div>
                 ))

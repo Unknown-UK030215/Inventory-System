@@ -51,43 +51,69 @@ export default function Users() {
     try {
       if (!supabase) throw new Error("Database not connected.");
 
-      if (editingUser) {
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({
-            name: formData.name,
-            username: formData.username,
-            password: formData.password,
-            role: formData.role || "staff"
-          })
-          .eq('id', editingUser.id);
+      const targetTable = formData.role === 'admin' ? 'admin_credentials' : 'users';
 
-        if (updateError) throw updateError;
+      if (editingUser) {
+        // If role changed, we need to move the user between tables
+        if (editingUser.role !== formData.role) {
+          // 1. Delete from old table
+          const oldTable = editingUser.role === 'admin' ? 'admin_credentials' : 'users';
+          const { error: deleteError } = await supabase
+            .from(oldTable)
+            .delete()
+            .eq('id', editingUser.id);
+          
+          if (deleteError) throw deleteError;
+
+          // 2. Insert into new table
+          const { error: insertError } = await supabase
+            .from(targetTable)
+            .insert([{
+              id: editingUser.id,
+              name: formData.name,
+              username: formData.username,
+              email: formData.email,
+              password: formData.password
+            }]);
+          
+          if (insertError) throw insertError;
+        } else {
+          // Just update in the same table
+          const { error: updateError } = await supabase
+            .from(targetTable)
+            .update({
+              name: formData.name,
+              username: formData.username,
+              password: formData.password
+            })
+            .eq('id', editingUser.id);
+
+          if (updateError) throw updateError;
+        }
       } else {
-        // 1. Create the user in Supabase Auth first so Forgot Password works
+        // 1. Create the user in Supabase Auth first
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
-          password: formData.password, // This will be their initial password
+          password: formData.password,
           options: {
             data: {
               name: formData.name,
-              role: formData.role || "staff"
+              role: formData.role
             }
           }
         });
 
         if (authError) throw authError;
 
-        // 2. Create the user in your public users table
+        // 2. Create the user in the target table
         const { error: insertError } = await supabase
-          .from('users')
+          .from(targetTable)
           .insert([{
-            id: authData.user.id, // Use the ID from Auth to keep them synced
+            id: authData.user.id,
             name: formData.name,
             username: formData.username,
             email: formData.email,
-            password: formData.password,
-            role: formData.role || "staff"
+            password: formData.password
           }]);
 
         if (insertError) throw insertError;
@@ -101,14 +127,17 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this account?")) {
+  const handleDelete = async (user) => {
+    if (window.confirm(`Are you sure you want to delete the account for ${user.name}?`)) {
       try {
         if (!supabase) throw new Error("Database not connected.");
+        
+        const table = user.role === 'admin' ? 'admin_credentials' : 'users';
+        
         const { error: deleteError } = await supabase
-          .from('users')
+          .from(table)
           .delete()
-          .eq('id', id);
+          .eq('id', user.id);
 
         if (deleteError) throw deleteError;
       } catch (err) {
@@ -128,7 +157,7 @@ export default function Users() {
           onClick={() => handleOpenModal()}
           className="btn-primary flex items-center gap-2"
         >
-          <span>+</span> Create Staff Account
+          <span>+</span> Create New Account
         </button>
       </div>
 
@@ -182,7 +211,7 @@ export default function Users() {
                       Edit
                     </button>
                     <button 
-                      onClick={() => handleDelete(user.id)}
+                      onClick={() => handleDelete(user)}
                       className="text-red-600 hover:underline text-sm"
                     >
                       Delete
@@ -199,7 +228,7 @@ export default function Users() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">{editingUser ? "Edit Staff Account" : "Create New Staff Account"}</h2>
+              <h2 className="text-xl font-bold">{editingUser ? "Edit User Account" : "Create New User Account"}</h2>
               <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
