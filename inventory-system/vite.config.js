@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['favicon.svg', 'icons.svg', 'pwa-icon.png'],
       manifest: {
         name: 'PSU Library Inventory',
         short_name: 'PSU Inventory',
@@ -19,19 +19,19 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'favicon.svg',
-            sizes: '48x48',
-            type: 'image/svg+xml'
-          },
-          {
-            src: 'favicon.svg',
+            src: 'pwa-icon.png',
             sizes: '192x192',
-            type: 'image/svg+xml'
+            type: 'image/png'
           },
           {
-            src: 'favicon.svg',
+            src: 'pwa-icon.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-icon.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
