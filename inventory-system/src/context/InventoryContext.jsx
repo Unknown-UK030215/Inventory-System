@@ -26,7 +26,7 @@ export function InventoryProvider({ children }) {
         supabase.from('assets').select('*, categories(name), locations(name)'),
         supabase.from('categories').select('*').order('name'),
         supabase.from('locations').select('*').order('name'),
-        supabase.from('reports').select('*').order('reported_at', { ascending: false }),
+        supabase.from('reports').select('*, assets(*)').order('reported_at', { ascending: false }),
         supabase.from('users').select('*').order('name'),
         supabase.from('admin_credentials').select('*').order('name')
       ]);
