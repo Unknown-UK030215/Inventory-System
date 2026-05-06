@@ -24,9 +24,7 @@ export default function StaffLayout() {
       {/* SIDEBAR - Desktop */}
       <aside className="hidden lg:flex sidebar staff-sidebar w-64 flex-col">
         <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="sidebar-profile-circle border-gray-200">
-            <img src={`https://ui-avatars.com/api/?name=Staff&background=FF5F1F&color=fff`} alt="Staff Profile" className="profile-img" />
-          </div>
+          <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
           <h1 className="text-lg font-bold text-gray-800">Staff Panel</h1>
         </div>
 
@@ -48,14 +46,14 @@ export default function StaffLayout() {
             className="w-64 h-full staff-sidebar p-6 shadow-xl" 
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 mb-8 relative text-white">
-              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl">&times;</button>
+            <div className="flex items-center gap-3 mb-8 relative">
+              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl text-white">&times;</button>
               <div className="sidebar-profile-circle border-gray-200">
                 <img src={`https://ui-avatars.com/api/?name=Staff&background=FF5F1F&color=fff`} alt="Staff Profile" className="profile-img" />
               </div>
-              <h1 className="text-lg font-bold">Staff Panel</h1>
+              <h1 className="text-lg font-bold text-white">Staff Panel</h1>
             </div>
-            <nav className="flex flex-col gap-4 text-white">
+            <nav className="flex flex-col gap-4">
               <NavLink to="/staff/dashboard" className="nav-link" onClick={closeMobileMenu}>Dashboard</NavLink>
               <NavLink to="/staff/my-assets" className="nav-link" onClick={closeMobileMenu}>My Assets</NavLink>
               <NavLink to="/staff/scan" className="nav-link" onClick={closeMobileMenu}>Scan QR</NavLink>
@@ -77,6 +75,7 @@ export default function StaffLayout() {
             >
               <span className="text-2xl">☰</span>
             </button>
+            <img src={psuLibraryLogo} alt="PSU Library Logo" className="w-10 h-10 object-contain" />
           </div>
 
           <div className="flex items-center gap-3">

@@ -4,9 +4,9 @@
   --secondary-bg: #ffffff;
   --psu-orange: #FF5F1F;
   
-  /* Admin Theme */
-  --admin-sidebar: #111827;
-  --admin-sidebar-text: #ffffff;
+  /* Admin Theme (matches Staff) */
+  --admin-sidebar: #ffffff;
+  --admin-sidebar-text: #1f2937;
   --admin-accent: var(--psu-orange);
   
   /* Staff Theme */

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useInventory } from "../../context/InventoryContext";
 import { 
   BarChart, 
@@ -12,6 +13,7 @@ import {
 } from 'recharts';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { assets, loading, reports } = useInventory();
   
   const [stats, setStats] = useState([
@@ -67,13 +69,13 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat, i) => (
-          <div key={i} className="card hover:shadow-md transition-shadow">
+          <div key={i} className="card hover:shadow-md transition-shadow group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 uppercase font-bold tracking-wider">{stat.label}</p>
-                <p className={`text-3xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
+                <p className="text-sm text-gray-500 uppercase font-bold tracking-wider group-hover:text-orange-600">{stat.label}</p>
+                <p className="text-3xl font-bold mt-1 group-hover:text-orange-600">{stat.value}</p>
               </div>
-              <div className={`${stat.bg} p-3 rounded-full text-2xl`}>
+              <div className="p-3 rounded-full text-2xl bg-orange-50 text-orange-600 group-hover:bg-orange-100">
                 {stat.icon}
               </div>
             </div>
@@ -123,7 +125,7 @@ export default function Dashboard() {
                 <button
                   key={i}
                   onClick={() => navigate(shortcut.path)}
-                  className="flex flex-col items-center justify-center p-4 rounded-lg border hover:bg-gray-50 transition border-gray-100"
+                  className="flex flex-col items-center justify-center p-4 rounded-lg border transition border-gray-100 hover:bg-orange-50 hover:border-orange-200"
                 >
                   <span className="text-2xl mb-2">{shortcut.icon}</span>
                   <span className="text-sm font-medium text-gray-600">{shortcut.title}</span>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import * as XLSX from "xlsx";
 import { supabase } from "../../lib/supabase";
 import { useInventory } from "../../context/InventoryContext";
 
@@ -11,6 +12,7 @@ export default function Assets() {
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [assetFormData, setAssetFormData] = useState({
     name: "",
     category_id: "",
@@ -165,6 +167,75 @@ export default function Assets() {
     link.click();
   };
 
+  const exportToExcel = () => {
+    const exportData = assets.map(asset => ({
+      "Asset Name": asset.name,
+      "Category": asset.categories?.name || "",
+      "Location": asset.locations?.name || "",
+      "Building": asset.locations?.building || "",
+      "Floor": asset.locations?.floor || "",
+      "Serial Number": asset.serial,
+      "Status": asset.status,
+      "Assigned To": asset.assigned_to_name || "",
+      "Purchase Date": asset.purchase_date || "",
+      "Created At": asset.created_at ? new Date(asset.created_at).toLocaleDateString() : ""
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Assets");
+    
+    XLSX.writeFile(workbook, `PSU-Inventory-Assets-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleImportExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+        const importedAssets = [];
+        
+        for (const row of jsonData) {
+          const category = categories.find(c => c.name === row["Category"]);
+          const location = locations.find(l => l.name === row["Location"]);
+          
+          importedAssets.push({
+            name: row["Asset Name"] || row["Name"],
+            category_id: category?.id || null,
+            location_id: location?.id || null,
+            serial: row["Serial Number"] || row["Serial"] || `SN-${Math.floor(1000 + Math.random() * 9000)}`,
+            status: row["Status"] || "Active",
+            assigned_to_name: row["Assigned To"] || "None",
+            purchase_date: row["Purchase Date"] || null
+          });
+        }
+
+        if (importedAssets.length > 0) {
+          const { error } = await supabase.from('assets').insert(importedAssets);
+          if (error) throw error;
+          alert(`Successfully imported ${importedAssets.length} assets!`);
+          refreshData();
+        }
+      } catch (err) {
+        alert("Error importing Excel file: " + err.message);
+        console.error(err);
+      } finally {
+        setIsImporting(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   return (
     <div className="page-container">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -172,12 +243,30 @@ export default function Assets() {
           <h1 className="text-2xl font-bold text-gray-800">Assets Inventory</h1>
           <p className="text-gray-500 text-sm">Manage equipment and generate QR stickers</p>
         </div>
-        <button 
-          onClick={() => handleOpenAssetModal()}
-          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-semibold"
-        >
-          + Add New Asset
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <label className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition shadow-sm font-semibold cursor-pointer text-center">
+            {isImporting ? 'Importing...' : '📥 Import Excel'}
+            <input 
+              type="file" 
+              accept=".xlsx,.xls" 
+              onChange={handleImportExcel} 
+              disabled={isImporting}
+              className="hidden"
+            />
+          </label>
+          <button 
+            onClick={exportToExcel}
+            className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition shadow-sm font-semibold"
+          >
+            📤 Export Excel
+          </button>
+          <button 
+            onClick={() => handleOpenAssetModal()}
+            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-semibold"
+          >
+            + Add New Asset
+          </button>
+        </div>
       </div>
       
       {error && (

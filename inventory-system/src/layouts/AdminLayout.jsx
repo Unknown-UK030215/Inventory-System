@@ -24,7 +24,7 @@ export default function AdminLayout() {
       <aside className="hidden lg:flex sidebar admin-sidebar w-64 flex-col">
         <div className="flex items-center gap-3 mb-8 px-2">
           <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
-          <h1 className="text-lg font-bold">Admin Panel</h1>
+          <h1 className="text-lg font-bold text-gray-800">Admin Panel</h1>
         </div>
         <nav className="flex flex-col gap-3">
           <NavLink to="/admin/dashboard" className="nav-link">Dashboard</NavLink>
@@ -41,11 +41,11 @@ export default function AdminLayout() {
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={closeMobileMenu}
         >
-          <aside className="w-64 h-full bg-white p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+          <aside className="w-64 h-full admin-sidebar p-6 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-8 relative">
-              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl text-gray-500">&times;</button>
+              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl text-white">&times;</button>
               <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
-              <h1 className="text-lg font-bold text-gray-800">Admin Panel</h1>
+              <h1 className="text-lg font-bold text-white">Admin Panel</h1>
             </div>
             <nav className="flex flex-col gap-4">
               <NavLink to="/admin/dashboard" className="nav-link mobile" onClick={closeMobileMenu}>Dashboard</NavLink>
@@ -69,6 +69,7 @@ export default function AdminLayout() {
             >
               <span className="text-2xl">☰</span>
             </button>
+            <img src={psuLibraryLogo} alt="PSU Library Logo" className="w-10 h-10 object-contain" />
           </div>
 
           <div className="flex items-center gap-3">

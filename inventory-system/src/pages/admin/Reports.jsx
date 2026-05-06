@@ -76,7 +76,7 @@ export default function AdminReports() {
               reports.map((report) => (
                 <tr key={report.id}>
                   <td>
-                    <div className="font-medium text-gray-900">{report.asset_name || "Unknown Asset"}</div>
+                    <div className="font-medium text-gray-900">{report.name || "Unknown Asset"}</div>
                     <div className="text-xs text-gray-500 font-mono">{report.serial || "N/A"}</div>
                   </td>
                   <td>

@@ -54,6 +54,25 @@
 
 .admin-sidebar {
   background-color: var(--admin-sidebar);
+  border-right: 1px solid var(--border-color);
+}
+
+.admin-sidebar .nav-link {
+  color: var(--admin-sidebar-text);
+}
+
+.admin-sidebar .nav-link:hover {
+  background-color: rgba(255, 95, 31, 0.1);
+  color: var(--psu-orange);
+}
+
+.admin-sidebar .nav-link.active {
+  background-color: rgba(255, 95, 31, 0.15);
+  color: var(--psu-orange);
+}
+
+.admin-sidebar h1 {
+  color: var(--admin-sidebar-text);
 }
 
 .staff-sidebar .nav-link {
@@ -61,11 +80,12 @@
 }
 
 .staff-sidebar .nav-link:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 95, 31, 0.1);
+  color: var(--psu-orange);
 }
 
 .staff-sidebar .nav-link.active {
-  background-color: rgba(255, 95, 31, 0.1);
+  background-color: rgba(255, 95, 31, 0.15);
   color: var(--psu-orange);
 }
 

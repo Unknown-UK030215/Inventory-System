@@ -127,21 +127,31 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (user) => {
-    if (window.confirm(`Are you sure you want to delete the account for ${user.name}?`)) {
+  const toggleUserStatus = async (user) => {
+    const currentStatus = user.is_active !== false;
+    const newStatus = !currentStatus;
+    const action = newStatus ? "activate" : "deactivate";
+    
+    if (window.confirm(`Are you sure you want to ${action} the account for ${user.name}?`)) {
       try {
         if (!supabase) throw new Error("Database not connected.");
         
         const table = user.role === 'admin' ? 'admin_credentials' : 'users';
         
-        const { error: deleteError } = await supabase
+        const { error: updateError } = await supabase
           .from(table)
-          .delete()
+          .update({ is_active: newStatus })
           .eq('id', user.id);
 
-        if (deleteError) throw deleteError;
+        if (updateError) {
+          if (updateError.message.includes('is_active') || updateError.message.includes('column')) {
+            throw new Error("Please run the SQL script first to add the 'is_active' column to your database!");
+          }
+          throw updateError;
+        }
+        refreshData();
       } catch (err) {
-        alert("Error deleting user: " + err.message);
+        alert("Error updating user status: " + err.message);
       }
     }
   };
@@ -175,53 +185,55 @@ export default function Users() {
       )}
 
       <div className="card overflow-hidden p-0">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && users.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="text-center py-8 text-gray-500">Loading users...</td>
+        <div className="overflow-x-auto">
+          <table className="data-table w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="text-center py-8 text-gray-500">No users found.</td>
-              </tr>
-            ) : (
-              users.map((user) => (
-                <tr key={user.id}>
-                  <td className="font-medium">{user.name}</td>
-                  <td>{user.email}</td>
-                  <td>
-                    <span className={`badge ${user.role === 'admin' ? 'badge-active' : 'badge-pending'}`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td>
-                    <button 
-                      onClick={() => handleOpenModal(user)}
-                      className="text-blue-600 hover:underline mr-3 text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(user)}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Delete
-                    </button>
-                  </td>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {loading && users.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-gray-500 font-medium">Loading users...</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-gray-500 font-medium">No users found.</td>
+                </tr>
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id}>
+                    <td className="font-medium">{user.name}</td>
+                    <td>{user.email}</td>
+                    <td>
+                      <span className={`badge ${user.role === 'admin' ? 'badge-active' : 'badge-pending'}`}>
+                        {user.role}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${user.is_active === false ? 'badge-danger' : 'badge-active'}`}>
+                        {user.is_active === false ? 'Inactive' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button 
+                        onClick={() => toggleUserStatus(user)}
+                        className={`${user.is_active === false ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'} text-sm font-medium`}
+                      >
+                        {user.is_active === false ? 'Activate' : 'Deactivate'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (

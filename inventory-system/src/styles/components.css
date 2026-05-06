@@ -5,6 +5,14 @@
   border-radius: 0.5rem;
   box-shadow: var(--shadow-sm);
   padding: 1.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--psu-orange);
+  transform: translateY(-2px);
 }
 
 .btn-primary {
