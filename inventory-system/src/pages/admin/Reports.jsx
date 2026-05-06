@@ -115,64 +115,6 @@ export default function AdminReports() {
                 <td colSpan="7" className="text-center py-8 text-gray-500">No reports found.</td>
               </tr>
             ) : (
-<<<<<<< HEAD
-              reports.map((report) => (
-                <tr key={report.id}>
-                  <td>
-                    <div className="font-medium text-gray-900">{report.name || "Unknown Asset"}</div>
-                    <div className="text-xs text-gray-500 font-mono">{report.serial || "N/A"}</div>
-                  </td>
-                  <td>
-                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                      report.type?.toLowerCase() === 'problem' ? 'bg-red-100 text-red-700' :
-                      report.type?.toLowerCase() === 'issue' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {report.type}
-                    </span>
-                  </td>
-                  <td className="max-w-xs truncate text-sm" title={report.description}>
-                    {report.description}
-                  </td>
-                  <td className="text-sm">{report.reported_by}</td>
-                  <td className="text-sm text-gray-500">{new Date(report.reported_at).toLocaleString()}</td>
-                  <td>
-                    <span className={`badge ${
-                      report.status === 'Pending' ? 'badge-pending' :
-                      report.status === 'In Progress' ? 'bg-orange-100 text-orange-700' :
-                      report.status === 'Resolved' ? 'badge-active' : 'badge-danger'
-                    }`}>
-                      {report.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button 
-                        disabled={isProcessing}
-                        onClick={() => handleAction(report.id, "Under Repair", report.serial)}
-                        className="text-xs bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                      >
-                        Repair
-                      </button>
-                      <button 
-                        disabled={isProcessing}
-                        onClick={() => handleAction(report.id, "Disposed", report.serial)}
-                        className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Dispose
-                      </button>
-                      <button 
-                        disabled={isProcessing}
-                        onClick={() => handleAction(report.id, "Resolved", report.serial)}
-                        className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50"
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-=======
               reports.map((report) => {
                 const assetInfo = getAssetInfo(report);
                 return (
@@ -232,7 +174,6 @@ export default function AdminReports() {
                   </tr>
                 );
               })
->>>>>>> 6c933d84e09dc57b2d0acb31cab89e269ba846ea
             )}
           </tbody>
         </table>
