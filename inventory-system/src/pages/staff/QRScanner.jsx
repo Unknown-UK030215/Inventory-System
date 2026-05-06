@@ -165,18 +165,30 @@ export default function QRScanner() {
       const user = storedUser ? JSON.parse(storedUser) : null;
       const reporterName = user?.name || user?.username || user?.email || "Unknown Staff";
       
-      const { error } = await supabase
-        .from('reports')
-        .insert([{
-          asset_name: scannedAsset.name,
-          serial: scannedAsset.serial,
-          type: reportType,
-          description: reportText,
-          reported_by: reporterName,
-          status: "Pending"
-        }]);
-
-      if (error) throw error;
+      const reportData = {
+        serial: scannedAsset.serial,
+        type: reportType,
+        description: reportText,
+        reported_by: reporterName,
+        status: "Pending"
+      };
+      
+      // Try with asset_name first, if that fails, try without
+      try {
+        const { error } = await supabase
+          .from('reports')
+          .insert([{ ...reportData, asset_name: scannedAsset.name, asset_id: scannedAsset.id }]);
+          
+        if (error) {
+          // If asset_name or asset_id columns don't exist, try without them
+          const { error: fallbackError } = await supabase
+            .from('reports')
+            .insert([reportData]);
+          if (fallbackError) throw fallbackError;
+        }
+      } catch (err) {
+        throw err;
+      }
       
       // Update local state to show the new report
       const newReport = {
