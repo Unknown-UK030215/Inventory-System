@@ -1,25 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import * as XLSX from "xlsx";
 import { supabase } from "../../lib/supabase";
 import { useInventory } from "../../context/InventoryContext";
+import { usePageTitle } from "../../layouts/AdminLayout";
 
 export default function Assets() {
   const { assets, categories, locations, loading, error, refreshData } = useInventory();
+  const { setPageTitle } = usePageTitle();
   
+  useEffect(() => {
+    setPageTitle("Assets Inventory");
+  }, [setPageTitle]);
+
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showImportSuccess, setShowImportSuccess] = useState(false);
+  const [importedCount, setImportedCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
   const [assetFormData, setAssetFormData] = useState({
     name: "",
     category_id: "",
     location_id: "",
     status: "Active",
     serial: "",
-    assigned_to_name: "None"
+    ref_id: "",
+    assigned_to_name: "None",
+    purchase_date: "",
+    uacs_code: "",
+    unit_cost: "",
+    qty: 1,
+    total_amount: "",
+    remarks: ""
   });
 
   const handleOpenAssetModal = (asset = null) => {
@@ -31,7 +48,14 @@ export default function Assets() {
         location_id: asset.location_id,
         status: asset.status,
         serial: asset.serial,
-        assigned_to_name: asset.assigned_to_name || "None"
+        ref_id: asset.ref_id || "",
+        assigned_to_name: asset.assigned_to_name || "None",
+        purchase_date: asset.purchase_date || "",
+        uacs_code: asset.uacs_code || "",
+        unit_cost: asset.unit_cost || "",
+        qty: asset.qty || 1,
+        total_amount: asset.total_amount || "",
+        remarks: asset.remarks || ""
       });
     } else {
       setEditingAsset(null);
@@ -41,10 +65,22 @@ export default function Assets() {
         location_id: "",
         status: "Active",
         serial: `SN-${Math.floor(1000 + Math.random() * 9000)}`,
-        assigned_to_name: "None"
+        ref_id: "",
+        assigned_to_name: "None",
+        purchase_date: "",
+        uacs_code: "",
+        unit_cost: "",
+        qty: 1,
+        total_amount: "",
+        remarks: ""
       });
     }
     setShowAssetModal(true);
+  };
+
+  const handleOpenViewModal = (asset) => {
+    setSelectedAsset(asset);
+    setShowViewModal(true);
   };
 
   const handleAssetSubmit = async (e) => {
@@ -69,7 +105,6 @@ export default function Assets() {
         if (insertError) throw insertError;
       }
       
-      // Data will be updated automatically via RLS/Subscription in Context
       setShowAssetModal(false);
     } catch (err) {
       alert("Error saving asset: " + err.message);
@@ -168,17 +203,19 @@ export default function Assets() {
   };
 
   const exportToExcel = () => {
-    const exportData = assets.map(asset => ({
-      "Asset Name": asset.name,
-      "Category": asset.categories?.name || "",
-      "Location": asset.locations?.name || "",
-      "Building": asset.locations?.building || "",
-      "Floor": asset.locations?.floor || "",
-      "Serial Number": asset.serial,
-      "Status": asset.status,
-      "Assigned To": asset.assigned_to_name || "",
-      "Purchase Date": asset.purchase_date || "",
-      "Created At": asset.created_at ? new Date(asset.created_at).toLocaleDateString() : ""
+    const exportData = filteredAssets.map((asset, index) => ({
+      "No.": index + 1,
+      "Date Acquired": asset.purchase_date || "",
+      "ICS NUMBER": asset.ref_id || "",
+      "UACS CODE": asset.uacs_code || "",
+      "DESCRIPTION": asset.name,
+      "Unit Cost": asset.unit_cost || "",
+      "QTY": asset.qty || 1,
+      "PROPERTY NUMBER": asset.serial,
+      "PERSON ACCOUNTABLE": asset.assigned_to_name || "",
+      "Total Amount": asset.total_amount || (asset.unit_cost && asset.qty ? Number(asset.unit_cost) * (asset.qty || 1) : ""),
+      "LOCATION": asset.locations?.name || "",
+      "Remarks": asset.remarks || ""
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -200,34 +237,164 @@ export default function Assets() {
         const data = new Uint8Array(event.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
         const importedAssets = [];
+        const usedSerials = new Set();
         
-        for (const row of jsonData) {
-          const category = categories.find(c => c.name === row["Category"]);
-          const location = locations.find(l => l.name === row["Location"]);
+        for (let i = 4; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          const description = row[4];
+          
+          if (!description || !String(description).trim()) continue;
+          
+          let qty = row[6] ? parseInt(row[6], 10) : 1;
+          if (isNaN(qty) || qty < 1) qty = 1;
+          
+          let categoryName = "Uncategorized";
+          const descLower = String(description).toLowerCase();
+          if (descLower.includes('laptop') || descLower.includes('computer')) {
+            categoryName = "Laptop";
+          } else if (descLower.includes('furniture') || descLower.includes('table') || descLower.includes('chair')) {
+            categoryName = "Furniture";
+          } else if (descLower.includes('aircon') || descLower.includes('conditioner') || descLower.includes('electronics')) {
+            categoryName = "Electronics";
+          }
+          
+          const category = categories.find(c => c.name === categoryName);
+          
+          let locationName = null;
+          const locationValue = row[10];
+          if (locationValue) {
+            locationName = String(locationValue).trim();
+          }
+          
+          let status = "Active";
+          const remarks = row[11];
+          if (remarks) {
+            const remarksLower = String(remarks).toLowerCase();
+            if (remarksLower.includes('unserviceable') || remarksLower.includes('disposed')) {
+              status = "Disposed";
+            } else if (remarksLower.includes('repair')) {
+              status = "Under Repair";
+            }
+          }
+          
+          let purchaseDate = null;
+          const dateAcquired = row[1];
+          if (dateAcquired) {
+            if (typeof dateAcquired === 'number') {
+              purchaseDate = XLSX.SSF.parse_date_code(dateAcquired);
+              if (purchaseDate) {
+                purchaseDate = new Date(purchaseDate.y, purchaseDate.m - 1, purchaseDate.d).toISOString().split('T')[0];
+              }
+            } else if (typeof dateAcquired === 'string') {
+              const parsed = new Date(dateAcquired);
+              if (!isNaN(parsed.getTime())) {
+                purchaseDate = parsed.toISOString().split('T')[0];
+              }
+            }
+          }
+          
+          const baseSerial = row[7] || row[2];
+          const uacsCode = row[3];
+          let unitCost = row[5];
+          let totalAmount = row[9];
+          
+          if (unitCost !== null && unitCost !== undefined) {
+            const cleaned = String(unitCost).trim().replace(/[^0-9.-]/g, '');
+            unitCost = cleaned ? parseFloat(cleaned) : null;
+          } else {
+            unitCost = null;
+          }
+          
+          if (totalAmount !== null && totalAmount !== undefined) {
+            const cleaned = String(totalAmount).trim().replace(/[^0-9.-]/g, '');
+            totalAmount = cleaned ? parseFloat(cleaned) : null;
+          } else {
+            totalAmount = null;
+          }
+          
+          const assetBase = {
+            name: String(description).trim(),
+            category_id: category?.id || null,
+            ref_id: row[2] ? String(row[2]).trim() : null,
+            status: status,
+            assigned_to_name: row[8] ? String(row[8]).trim() : "None",
+            purchase_date: purchaseDate,
+            qty: qty,
+            uacs_code: uacsCode ? String(uacsCode).trim() : null,
+            unit_cost: unitCost,
+            total_amount: totalAmount,
+            remarks: remarks ? String(remarks).trim() : null
+          };
           
           importedAssets.push({
-            name: row["Asset Name"] || row["Name"],
-            category_id: category?.id || null,
-            location_id: location?.id || null,
-            serial: row["Serial Number"] || row["Serial"] || `SN-${Math.floor(1000 + Math.random() * 9000)}`,
-            status: row["Status"] || "Active",
-            assigned_to_name: row["Assigned To"] || "None",
-            purchase_date: row["Purchase Date"] || null
+            ...assetBase,
+            locationName: locationName,
+            serial: baseSerial ? String(baseSerial).trim() : null
           });
         }
 
-        if (importedAssets.length > 0) {
-          const { error } = await supabase.from('assets').insert(importedAssets);
+        const locationNameToIdMap = new Map();
+        locations.forEach(loc => locationNameToIdMap.set(loc.name, loc.id));
+
+        const uniqueNewLocationNames = [...new Set(
+          importedAssets.filter(a => a.locationName && !locationNameToIdMap.has(a.locationName)).map(a => a.locationName)
+        )];
+
+        if (uniqueNewLocationNames.length > 0) {
+          const { data: insertedLocs, error: locInsertErr } = await supabase
+            .from('locations')
+            .insert(uniqueNewLocationNames.map(name => ({ name })))
+            .select();
+          if (!locInsertErr && insertedLocs) {
+            insertedLocs.forEach(loc => {
+              locationNameToIdMap.set(loc.name, loc.id);
+            });
+          }
+        }
+
+        const finalAssets = [];
+        for (const asset of importedAssets) {
+          const { locationName, serial, ...base } = asset;
+          
+          for (let j = 0; j < base.qty; j++) {
+            let finalSerial = serial;
+            if (!finalSerial) {
+              finalSerial = `SN-${Math.floor(1000 + Math.random() * 9000)}`;
+            } else if (base.qty > 1) {
+              finalSerial = `${String(serial).trim()}-${j + 1}`;
+            }
+            
+            let uniqueSerial = finalSerial;
+            let counter = 1;
+            while (usedSerials.has(uniqueSerial)) {
+              uniqueSerial = `${finalSerial}-${counter}`;
+              counter++;
+            }
+            usedSerials.add(uniqueSerial);
+            
+            finalAssets.push({
+              ...base,
+              serial: uniqueSerial,
+              location_id: locationName ? locationNameToIdMap.get(locationName) : null
+            });
+          }
+        }
+
+        if (finalAssets.length > 0) {
+          const { error } = await supabase.from('assets').insert(finalAssets);
           if (error) throw error;
-          alert(`Successfully imported ${importedAssets.length} assets!`);
+          setImportedCount(finalAssets.length);
+          setShowImportSuccess(true);
           refreshData();
+        } else {
+          alert("No valid assets found to import.");
         }
       } catch (err) {
+        console.error("Import error details:", err);
         alert("Error importing Excel file: " + err.message);
-        console.error(err);
       } finally {
         setIsImporting(false);
         e.target.value = '';
@@ -236,41 +403,64 @@ export default function Assets() {
     reader.readAsArrayBuffer(file);
   };
 
+  const filteredAssets = assets.filter(asset => {
+    const matchesSearch = !searchTerm || 
+      asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.serial.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (asset.categories?.name && asset.categories.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (asset.locations?.name && asset.locations.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (asset.assigned_to_name && asset.assigned_to_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    return matchesSearch;
+  });
+
   return (
     <div className="page-container">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Assets Inventory</h1>
-          <p className="text-gray-500 text-sm">Manage equipment and generate QR stickers</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition shadow-sm font-semibold cursor-pointer text-center">
-            {isImporting ? 'Importing...' : '📥 Import Excel'}
-            <input 
-              type="file" 
-              accept=".xlsx,.xls" 
-              onChange={handleImportExcel} 
-              disabled={isImporting}
-              className="hidden"
-            />
-          </label>
-          <button 
-            onClick={exportToExcel}
-            className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition shadow-sm font-semibold"
-          >
-            📤 Export Excel
-          </button>
-          <button 
-            onClick={() => handleOpenAssetModal()}
-            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-semibold"
-          >
-            + Add New Asset
-          </button>
+      <div className="mb-4">
+        <p className="text-gray-500 text-lg">Manage equipment and generate QR stickers</p>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search assets..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label className="w-full sm:w-auto bg-[#FF5F1F] text-white px-4 py-2 rounded-lg hover:opacity-90 transition shadow-sm font-semibold cursor-pointer text-center">
+              {isImporting ? 'Importing...' : '📥 Import Excel'}
+              <input 
+                type="file" 
+                accept=".xlsx,.xls" 
+                onChange={handleImportExcel} 
+                disabled={isImporting}
+                className="hidden"
+              />
+            </label>
+            <button 
+              onClick={exportToExcel}
+              className="w-full sm:w-auto bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition shadow-sm font-semibold"
+            >
+              📤 Export Excel
+            </button>
+            <button 
+              onClick={() => handleOpenAssetModal()}
+              className="w-full sm:w-auto bg-[#FF5F1F] text-white px-4 py-2 rounded-lg hover:opacity-90 transition shadow-sm font-semibold"
+            >
+              + Add New Asset
+            </button>
+          </div>
         </div>
       </div>
-      
+
       {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
           <p className="font-bold">Error loading data:</p>
           <p className="text-sm">{error}</p>
           <button 
@@ -282,64 +472,103 @@ export default function Assets() {
         </div>
       )}
       
-      <div className="card overflow-hidden p-0 border-0 shadow-sm rounded-xl">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="table-container">
           <table className="data-table w-full">
             <thead>
               <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset Name</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Serial</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned To</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">No.</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date Acquired</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ICS Number</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">UACS Code</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Unit Cost</th>
+                <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">QTY</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Property Number</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Person Accountable</th>
+                <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Amount</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
+                <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
             {loading && assets.length === 0 ? (
               <tr>
-                <td colSpan="8" className="text-center py-8 text-gray-500 font-medium">Loading assets...</td>
+                <td colSpan="14" className="text-center py-8 text-gray-500 font-medium">Loading assets...</td>
               </tr>
-            ) : assets.length === 0 ? (
+            ) : filteredAssets.length === 0 ? (
               <tr>
-                <td colSpan="8" className="text-center py-8 text-gray-500 font-medium">No assets found.</td>
+                <td colSpan="14" className="text-center py-8 text-gray-500 font-medium">
+                  {searchTerm || statusFilter !== "All" ? "No assets match your search/filter." : "No assets found."}
+                </td>
               </tr>
             ) : (
-              assets.map((asset) => (
-                <tr key={asset.id}>
-                  <td className="font-medium">{asset.name}</td>
-                  <td>{asset.categories?.name || 'Uncategorized'}</td>
-                  <td>{asset.locations?.name || 'No Location'}</td>
-                  <td className="text-sm text-gray-500">{asset.serial}</td>
-                  <td>{asset.assigned_to_name || 'Unassigned'}</td>
-                  <td>
-                    <span className={`badge ${
-                      asset.status === 'Active' ? 'badge-active' : 
-                      asset.status === 'Disposed' ? 'badge-danger' : 'badge-pending'
-                    }`}>
-                      {asset.status}
-                    </span>
+              filteredAssets.map((asset, index) => (
+                <tr key={asset.id} className="hover:bg-blue-50 transition-colors">
+                  <td className="px-3 py-3 text-center text-gray-500 font-medium">{index + 1}</td>
+                  <td className="px-3 py-3 text-sm text-gray-600">
+                    {asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <button 
-                      onClick={() => openQRModal(asset)}
-                      className="text-green-600 hover:text-green-800 mr-3 text-sm font-medium"
-                    >
-                      QR Code
-                    </button>
-                    <button 
-                      onClick={() => handleOpenAssetModal(asset)}
-                      className="text-blue-600 hover:text-blue-800 mr-3 text-sm font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteAsset(asset.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
-                    >
-                      Delete
-                    </button>
+                  <td className="px-3 py-3 text-gray-600 font-mono">
+                    <div className="text-truncate" title={asset.ref_id || 'N/A'}>{asset.ref_id || 'N/A'}</div>
+                  </td>
+                  <td className="px-3 py-3 text-gray-600 font-mono">
+                    <div className="text-truncate" title={asset.uacs_code || 'N/A'}>{asset.uacs_code || 'N/A'}</div>
+                  </td>
+                  <td className="px-3 py-3 font-medium text-gray-800">
+                    <div className="text-truncate" title={asset.name}>{asset.name}</div>
+                  </td>
+                  <td className="px-3 py-3 text-right text-gray-600">
+                    {asset.unit_cost ? `₱${Number(asset.unit_cost).toLocaleString()}` : 'N/A'}
+                  </td>
+                  <td className="px-3 py-3 text-center text-gray-600 font-medium">{asset.qty || 1}</td>
+                  <td className="px-3 py-3 text-gray-600 font-mono">
+                    <div className="text-truncate" title={asset.serial}>{asset.serial}</div>
+                  </td>
+                  <td className="px-3 py-3 text-gray-600">
+                    <div className="text-truncate" title={asset.assigned_to_name || 'Unassigned'}>{asset.assigned_to_name || 'Unassigned'}</div>
+                  </td>
+                  <td className="px-3 py-3 text-right text-gray-600">
+                    {asset.total_amount ? `₱${Number(asset.total_amount).toLocaleString()}` : (asset.unit_cost && asset.qty ? `₱${(Number(asset.unit_cost) * (asset.qty || 1)).toLocaleString()}` : 'N/A')}
+                  </td>
+                  <td className="px-3 py-3 text-gray-600">
+                    <div className="text-truncate" title={asset.locations?.name || 'No Location'}>{asset.locations?.name || 'No Location'}</div>
+                  </td>
+                  <td className="px-3 py-3 text-gray-600">
+                    <div className="text-truncate" title={asset.remarks || 'N/A'}>{asset.remarks || 'N/A'}</div>
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => handleOpenViewModal(asset)}
+                        className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-semibold transition"
+                        title="View Asset"
+                      >
+                        View
+                      </button>
+                      <button 
+                        onClick={() => openQRModal(asset)}
+                        className="px-3 py-1 bg-[#FF5F1F] text-white rounded-lg text-xs font-semibold transition hover:opacity-90"
+                        title="Generate QR Code"
+                      >
+                        QR
+                      </button>
+                      <button 
+                        onClick={() => handleOpenAssetModal(asset)}
+                        className="px-3 py-1 text-[#FF5F1F] hover:bg-orange-50 rounded-lg text-xs font-semibold transition"
+                        title="Edit Asset"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteAsset(asset.id)}
+                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold transition"
+                        title="Delete Asset"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -347,11 +576,119 @@ export default function Assets() {
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+
+      {showViewModal && selectedAsset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Asset Details</h2>
+              <button 
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-3xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Date Acquired</h3>
+                  <p className="text-gray-700">{selectedAsset.purchase_date ? new Date(selectedAsset.purchase_date).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">ICS Number</h3>
+                  <p className="text-gray-700 font-mono">{selectedAsset.ref_id || 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">UACS Code</h3>
+                  <p className="text-gray-700 font-mono">{selectedAsset.uacs_code || 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Description</h3>
+                  <p className="text-lg font-medium text-gray-800">{selectedAsset.name}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Unit Cost</h3>
+                  <p className="text-gray-700">{selectedAsset.unit_cost ? `₱${Number(selectedAsset.unit_cost).toLocaleString()}` : 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">QTY</h3>
+                  <p className="text-gray-700 font-medium">{selectedAsset.qty || 1}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Property Number</h3>
+                  <p className="text-gray-700 font-mono">{selectedAsset.serial}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Person Accountable</h3>
+                  <p className="text-gray-700">{selectedAsset.assigned_to_name || 'Unassigned'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Amount</h3>
+                  <p className="text-gray-700 font-medium">
+                    {selectedAsset.total_amount 
+                      ? `₱${Number(selectedAsset.total_amount).toLocaleString()}` 
+                      : (selectedAsset.unit_cost && selectedAsset.qty 
+                          ? `₱${(Number(selectedAsset.unit_cost) * (selectedAsset.qty || 1)).toLocaleString()}` 
+                          : 'N/A')}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Location</h3>
+                  <p className="text-gray-700">{selectedAsset.locations?.name || 'No Location'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Category</h3>
+                  <p className="text-gray-700">{selectedAsset.categories?.name || 'Uncategorized'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Status</h3>
+                  <span className={`badge ${
+                    selectedAsset.status === 'Active' ? 'badge-active' : 
+                    selectedAsset.status === 'Disposed' ? 'badge-danger' : 'badge-pending'
+                  }`}>
+                    {selectedAsset.status}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Remarks</h3>
+                  <p className="text-gray-700">{selectedAsset.remarks || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-3 justify-end">
+              <button 
+                onClick={() => setShowViewModal(false)}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-semibold"
+              >
+                Close
+              </button>
+              <button 
+                onClick={() => {
+                  setShowViewModal(false);
+                  handleOpenAssetModal(selectedAsset);
+                }}
+                className="px-6 py-2 bg-[#FF5F1F] text-white rounded-lg hover:opacity-90 transition font-semibold"
+              >
+                Edit Asset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAssetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">{editingAsset ? "Edit Asset" : "Add New Asset"}</h2>
               <button onClick={() => setShowAssetModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
@@ -365,14 +702,14 @@ export default function Assets() {
 
             <form onSubmit={handleAssetSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Asset Name</label>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Description (Asset Name)</label>
                 <input
                   type="text"
                   required
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
                   value={assetFormData.name}
                   onChange={(e) => setAssetFormData({...assetFormData, name: e.target.value})}
-                  placeholder='e.g. MacBook Pro 16"'
+                  placeholder='e.g. 2.5HP split type inverter airconditioning'
                 />
               </div>
 
@@ -381,7 +718,7 @@ export default function Assets() {
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Category</label>
                   <select
                     required
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
                     value={assetFormData.category_id}
                     onChange={(e) => setAssetFormData({...assetFormData, category_id: e.target.value})}
                   >
@@ -395,7 +732,7 @@ export default function Assets() {
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Location</label>
                   <select
                     required
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
                     value={assetFormData.location_id}
                     onChange={(e) => setAssetFormData({...assetFormData, location_id: e.target.value})}
                   >
@@ -409,20 +746,18 @@ export default function Assets() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-1 text-gray-700">Serial Number</label>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Date Acquired</label>
                   <input
-                    type="text"
-                    required
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
-                    value={assetFormData.serial}
-                    onChange={(e) => setAssetFormData({...assetFormData, serial: e.target.value})}
-                    placeholder="S/N-12345"
+                    type="date"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.purchase_date}
+                    onChange={(e) => setAssetFormData({...assetFormData, purchase_date: e.target.value})}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Status</label>
                   <select
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
                     value={assetFormData.status}
                     onChange={(e) => setAssetFormData({...assetFormData, status: e.target.value})}
                   >
@@ -433,14 +768,97 @@ export default function Assets() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">ICS Number</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.ref_id}
+                    onChange={(e) => setAssetFormData({...assetFormData, ref_id: e.target.value})}
+                    placeholder="e.g. ICT 21-004"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">UACS Code</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.uacs_code}
+                    onChange={(e) => setAssetFormData({...assetFormData, uacs_code: e.target.value})}
+                    placeholder="e.g. 10605020"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Property Number</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none bg-gray-50"
+                    value={assetFormData.serial}
+                    onChange={(e) => setAssetFormData({...assetFormData, serial: e.target.value})}
+                    placeholder="e.g. PSU ICT 164 21-167"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Person Accountable</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.assigned_to_name}
+                    onChange={(e) => setAssetFormData({...assetFormData, assigned_to_name: e.target.value})}
+                    placeholder="e.g. Banzuelo, Joyce M."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Unit Cost</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.unit_cost}
+                    onChange={(e) => setAssetFormData({...assetFormData, unit_cost: e.target.value})}
+                    placeholder="e.g. 74500.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">QTY</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.qty}
+                    onChange={(e) => setAssetFormData({...assetFormData, qty: parseInt(e.target.value) || 1})}
+                    placeholder="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Total Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.total_amount}
+                    onChange={(e) => setAssetFormData({...assetFormData, total_amount: e.target.value})}
+                    placeholder="Leave blank to auto-calculate"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-semibold mb-1 text-gray-700">Assigned To</label>
-                <input
-                  type="text"
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={assetFormData.assigned_to_name}
-                  onChange={(e) => setAssetFormData({...assetFormData, assigned_to_name: e.target.value})}
-                  placeholder="e.g. John Doe"
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Remarks</label>
+                <textarea
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                  rows="2"
+                  value={assetFormData.remarks}
+                  onChange={(e) => setAssetFormData({...assetFormData, remarks: e.target.value})}
+                  placeholder="e.g. Serviceable, Unserviceable, etc."
                 />
               </div>
 
@@ -455,7 +873,7 @@ export default function Assets() {
                 <button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition disabled:opacity-50"
+                  className="flex-1 bg-[#FF5F1F] text-white py-2 rounded hover:opacity-90 transition disabled:opacity-50"
                 >
                   {isSubmitting ? "Saving..." : (editingAsset ? "Update Asset" : "Save Asset")}
                 </button>
@@ -496,15 +914,37 @@ export default function Assets() {
             <div className="flex gap-3">
               <button 
                 onClick={printQRCode}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
+                className="flex-1 bg-[#FF5F1F] text-white py-2 px-4 rounded hover:opacity-90 transition"
               >
                 Print Sticker
               </button>
               <button 
                 onClick={downloadQRCode}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
+                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded hover:bg-gray-800 transition"
               >
                 Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImportSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <span className="text-5xl">✅</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Import Successful!</h2>
+              <p className="text-gray-500 mb-6">
+                Successfully imported <span className="font-bold text-blue-600 text-xl">{importedCount}</span> {importedCount === 1 ? 'asset' : 'assets'} into the inventory.
+              </p>
+              <button 
+                onClick={() => setShowImportSuccess(false)}
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition font-semibold text-lg"
+              >
+                Done
               </button>
             </div>
           </div>

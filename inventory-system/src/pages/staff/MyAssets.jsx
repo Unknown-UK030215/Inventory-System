@@ -27,42 +27,44 @@ export default function MyAssets() {
       )}
 
       <div className="card overflow-hidden p-0">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Asset Name</th>
-              <th>Category</th>
-              <th>Serial Number</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && myAssets.length === 0 ? (
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan="4" className="text-center py-8 text-gray-500">Loading assets...</td>
+                <th>Asset Name</th>
+                <th>Category</th>
+                <th>Serial Number</th>
+                <th>Status</th>
               </tr>
-            ) : myAssets.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="text-center py-8 text-gray-500">No assets assigned to you.</td>
-              </tr>
-            ) : (
-              myAssets.map((asset) => (
-                <tr key={asset.id}>
-                  <td>{asset.name}</td>
-                  <td>{asset.categories?.name || 'Uncategorized'}</td>
-                  <td className="text-sm text-gray-500">{asset.serial}</td>
-                  <td>
-                    <span className={`badge ${
-                      asset.status === 'Active' ? 'badge-active' : 'badge-pending'
-                    }`}>
-                      {asset.status}
-                    </span>
-                  </td>
+            </thead>
+            <tbody>
+              {loading && myAssets.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="text-center py-8 text-gray-500">Loading assets...</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : myAssets.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="text-center py-8 text-gray-500">No assets assigned to you.</td>
+                </tr>
+              ) : (
+                myAssets.map((asset) => (
+                  <tr key={asset.id}>
+                    <td>{asset.name}</td>
+                    <td>{asset.categories?.name || 'Uncategorized'}</td>
+                    <td className="text-sm text-gray-500 font-mono">{asset.serial}</td>
+                    <td>
+                      <span className={`badge ${
+                        asset.status === 'Active' ? 'badge-active' : 'badge-pending'
+                      }`}>
+                        {asset.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -52,6 +52,15 @@ export default function Login() {
           throw new Error("Invalid admin username/email or password.");
         }
 
+        // Update admin online status and last active
+        await supabase
+          .from('admin_credentials')
+          .update({ 
+            is_online: true, 
+            last_active: new Date().toISOString() 
+          })
+          .eq('id', adminData.id);
+
         // Successfully logged in as admin
         localStorage.setItem("user", "admin");
         localStorage.setItem("admin_user", JSON.stringify({
@@ -82,6 +91,15 @@ export default function Login() {
       if (userError || !userData) {
         throw new Error("Invalid staff username/email or password.");
       }
+
+      // Update staff online status and last active
+      await supabase
+        .from('users')
+        .update({ 
+          is_online: true, 
+          last_active: new Date().toISOString() 
+        })
+        .eq('id', userData.id);
 
       // Successfully logged in as staff
       localStorage.setItem("user", role);

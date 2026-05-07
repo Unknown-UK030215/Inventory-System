@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { useInventory } from "../../context/InventoryContext";
+import { usePageTitle } from "../../layouts/AdminLayout";
 
 export default function Users() {
   const { users, loading, error, refreshData } = useInventory();
+  const { setPageTitle } = usePageTitle();
+
+  useEffect(() => {
+    setPageTitle("User Management");
+  }, [setPageTitle]);
   
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -113,7 +119,8 @@ export default function Users() {
             name: formData.name,
             username: formData.username,
             email: formData.email,
-            password: formData.password
+            password: formData.password,
+            is_online: false
           }]);
 
         if (insertError) throw insertError;
@@ -158,21 +165,22 @@ export default function Users() {
 
   return (
     <div className="page-container">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-gray-500">Create and manage staff accounts</p>
+      <div className="mb-4">
+        <p className="text-gray-500 text-lg">Create and manage staff accounts</p>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+        <div className="flex justify-end">
+          <button 
+            onClick={() => handleOpenModal()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-semibold"
+          >
+            + Create New Account
+          </button>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="btn-primary flex items-center gap-2"
-        >
-          <span>+</span> Create New Account
-        </button>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
           <p className="font-bold">Error loading users:</p>
           <p className="text-sm">{error}</p>
           <button 
@@ -184,16 +192,16 @@ export default function Users() {
         </div>
       )}
 
-      <div className="card overflow-hidden p-0">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="table-container">
           <table className="data-table w-full">
             <thead>
               <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -207,25 +215,52 @@ export default function Users() {
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="font-medium">{user.name}</td>
-                    <td>{user.email}</td>
+                  <tr key={user.id} className="hover:bg-blue-50 transition-colors">
+                    <td className="font-medium text-gray-800">
+                      <div className="text-truncate" title={user.name}>{user.name}</div>
+                    </td>
+                    <td className="text-gray-600">
+                      <div className="text-truncate" title={user.email}>{user.email}</div>
+                    </td>
                     <td>
                       <span className={`badge ${user.role === 'admin' ? 'badge-active' : 'badge-pending'}`}>
                         {user.role}
                       </span>
                     </td>
-                    <td>
-                      <span className={`badge ${user.is_active === false ? 'badge-danger' : 'badge-active'}`}>
-                        {user.is_active === false ? 'Inactive' : 'Active'}
-                      </span>
+                    <td className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                        <span className="text-xs font-medium text-gray-700">
+                          {user.is_online ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className={`badge ${user.is_active === false ? 'badge-danger' : 'badge-active'}`}>
+                          {user.is_active === false ? 'Account Disabled' : 'Account Active'}
+                        </span>
+                      </div>
+                      {user.last_active && (
+                        <div className="text-xs text-gray-500">
+                          Last active: {new Date(user.last_active).toLocaleString()}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button 
                         onClick={() => toggleUserStatus(user)}
-                        className={`${user.is_active === false ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'} text-sm font-medium`}
+                        className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
+                          user.is_active === false 
+                            ? 'text-green-700 hover:bg-green-50' 
+                            : 'text-orange-700 hover:bg-orange-50'
+                        }`}
                       >
                         {user.is_active === false ? 'Activate' : 'Deactivate'}
+                      </button>
+                      <button 
+                        onClick={() => handleOpenModal(user)}
+                        className="ml-2 px-3 py-1 text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold transition"
+                      >
+                        Edit
                       </button>
                     </td>
                   </tr>

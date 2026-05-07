@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import psuLibraryLogo from "../assets/Psu_Library.png";
@@ -7,13 +7,59 @@ export default function StaffLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const getStaffUser = () => {
+    try {
+      return JSON.parse(localStorage.getItem('staff_user') || '{}');
+    } catch {
+      return {};
+    }
+  };
+
   const logout = async () => {
+    const staffUser = getStaffUser();
+    if (staffUser.id) {
+      await supabase
+        .from('users')
+        .update({ 
+          is_online: false, 
+          last_active: new Date().toISOString() 
+        })
+        .eq('id', staffUser.id);
+    }
+    
     await supabase.auth.signOut();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("staff_user");
     localStorage.removeItem("supabase_session");
     navigate("/");
   };
+
+  // Update last active every 30 seconds while logged in
+  useEffect(() => {
+    const staffUser = getStaffUser();
+    if (!staffUser.id) return;
+
+    const updateLastActive = async () => {
+      try {
+        await supabase
+          .from('users')
+          .update({ 
+            is_online: true,
+            last_active: new Date().toISOString() 
+          })
+          .eq('id', staffUser.id);
+      } catch (err) {
+        console.error('Failed to update last active:', err);
+      }
+    };
+
+    // Run immediately and then every 30 seconds
+    updateLastActive();
+    const interval = setInterval(updateLastActive, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);

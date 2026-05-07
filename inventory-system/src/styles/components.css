@@ -32,6 +32,7 @@
   width: 100%;
   text-align: left;
   border-collapse: collapse;
+  min-width: 1000px;
 }
 
 .data-table thead {
@@ -40,20 +41,36 @@
 }
 
 .data-table th {
-  padding: 0.75rem;
+  padding: 0.5rem 0.5rem;
   font-weight: 600;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
 }
 
 .data-table td {
-  padding: 0.75rem;
+  padding: 0.5rem 0.5rem;
   border-bottom: 1px solid var(--border-color);
+  font-size: 0.875rem;
+}
+
+.text-truncate {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .data-table tr:hover {
   background-color: #f9fafb;
+}
+
+/* Mobile table container with horizontal scroll */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .badge {

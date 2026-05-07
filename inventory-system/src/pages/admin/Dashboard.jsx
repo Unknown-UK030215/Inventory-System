@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInventory } from "../../context/InventoryContext";
+import { usePageTitle } from "../../layouts/AdminLayout";
 import { 
   BarChart, 
   Bar, 
@@ -15,6 +16,11 @@ import {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { assets, loading, reports } = useInventory();
+  const { setPageTitle } = usePageTitle();
+
+  useEffect(() => {
+    setPageTitle("Admin Dashboard");
+  }, [setPageTitle]);
   
   const [stats, setStats] = useState([
     { label: "Total Assets", value: "0", color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
@@ -61,9 +67,8 @@ export default function Dashboard() {
 
   return (
     <div className="page-container">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
-        <p className="text-gray-500">Welcome back, Administrator</p>
+      <div className="mb-4">
+        <p className="text-gray-500 text-lg">Welcome back, Administrator</p>
       </div>
       
       {/* Stats Grid */}
@@ -148,9 +153,9 @@ export default function Dashboard() {
                     <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
                     <div>
                       <p className="text-sm text-gray-800">
-                        <span className="font-bold">{report.reported_by}</span> reported <span className="font-semibold">{report.type}</span> on {report.asset_name || "Unknown Asset"}
+                        <span className="font-bold">{report.reported_by}</span> reported <span className="font-semibold">{report.type}</span> on {report.name || "Unknown Asset"}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(report.reported_at).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(report.created_at || report.reported_at).toLocaleString()}</p>
                     </div>
                   </div>
                 ))

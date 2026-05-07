@@ -5,6 +5,7 @@ const InventoryContext = createContext(null);
 
 export function InventoryProvider({ children }) {
   const [assets, setAssets] = useState([]);
+  const [disposed, setDisposed] = useState([]);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
   const [reports, setReports] = useState([]);
@@ -22,11 +23,19 @@ export function InventoryProvider({ children }) {
       setLoading(true);
       setError(null);
 
-      const [assetsRes, catsRes, locsRes, reportsRes, usersRes, adminsRes] = await Promise.all([
+      let reportsRes;
+      try {
+        reportsRes = await supabase.from('reports').select('*').order('created_at', { ascending: false });
+        if (reportsRes.error) throw reportsRes.error;
+      } catch (err) {
+        reportsRes = await supabase.from('reports').select('*').order('reported_at', { ascending: false });
+      }
+
+      const [assetsRes, disposedRes, catsRes, locsRes, usersRes, adminsRes] = await Promise.all([
         supabase.from('assets').select('*, categories(name), locations(name)'),
+        supabase.from('disposed').select('*, categories(name), locations(name)'),
         supabase.from('categories').select('*').order('name'),
         supabase.from('locations').select('*').order('name'),
-        supabase.from('reports').select('*, assets(*)').order('reported_at', { ascending: false }),
         supabase.from('users').select('*').order('name'),
         supabase.from('admin_credentials').select('*').order('name')
       ]);
@@ -57,6 +66,7 @@ export function InventoryProvider({ children }) {
       }
 
       setAssets(assetsRes.data || []);
+      setDisposed(disposedRes.data || []);
       setCategories(catsRes.data || []);
       setLocations(locsRes.data || []);
       setReports(reportsRes.data || []);
@@ -82,6 +92,7 @@ export function InventoryProvider({ children }) {
     const assetsSubscription = supabase
       .channel('inventory-changes')
       .on('postgres_changes', { event: '*', table: 'assets' }, () => fetchData())
+      .on('postgres_changes', { event: '*', table: 'disposed' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'reports' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'categories' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'locations' }, () => fetchData())
@@ -96,6 +107,7 @@ export function InventoryProvider({ children }) {
 
   const value = {
     assets,
+    disposed,
     categories,
     locations,
     reports,

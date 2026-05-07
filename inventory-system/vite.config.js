@@ -10,7 +10,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons.svg', 'pwa-icon.png'],
       manifest: {
-        name: 'PSU Library Inventory',
+        name: 'PSU Library Supply and Property Inventory',
         short_name: 'PSU Inventory',
         description: 'Inventory Management System for PSU Library',
         theme_color: '#FF5F1F',
