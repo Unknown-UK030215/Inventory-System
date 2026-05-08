@@ -52,6 +52,11 @@ export default function Login() {
           throw new Error("Invalid admin username/email or password.");
         }
 
+        // Check if account is deactivated
+        if (adminData.is_active === false) {
+          throw new Error("ACCOUNT_DEACTIVATED");
+        }
+
         // Update admin online status and last active
         await supabase
           .from('admin_credentials')
@@ -73,7 +78,11 @@ export default function Login() {
         navigate("/admin/dashboard");
         return;
       } catch (err) {
-        setError(err.message);
+        if (err.message === "ACCOUNT_DEACTIVATED") {
+          setError("Your account has been deactivated. Please contact the administrator.");
+        } else {
+          setError(err.message);
+        }
         setLoading(false);
         return;
       }
@@ -90,6 +99,11 @@ export default function Login() {
 
       if (userError || !userData) {
         throw new Error("Invalid staff username/email or password.");
+      }
+
+      // Check if account is deactivated
+      if (userData.is_active === false) {
+        throw new Error("ACCOUNT_DEACTIVATED");
       }
 
       // Update staff online status and last active
@@ -112,7 +126,11 @@ export default function Login() {
 
       navigate("/staff/dashboard");
     } catch (err) {
-      setError(err.message);
+      if (err.message === "ACCOUNT_DEACTIVATED") {
+        setError("Your account has been deactivated. Please contact the administrator.");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -341,8 +359,25 @@ export default function Login() {
 
 
         {error && (
-          <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded text-center">
-            {error}
+          <div className={`mb-4 p-4 rounded-lg text-center ${
+            error.includes("deactivated") 
+              ? "bg-orange-50 border-2 border-orange-300" 
+              : "bg-red-100 border border-red-300"
+          }`}>
+            {error.includes("deactivated") ? (
+              <>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-2xl">⚠️</span>
+                  <h3 className="font-bold text-orange-800">Account Deactivated</h3>
+                </div>
+                <p className="text-orange-700">{error}</p>
+                <p className="text-xs text-orange-600 mt-2">
+                  If you believe this is a mistake, please contact the system administrator.
+                </p>
+              </>
+            ) : (
+              <p className="text-red-700">{error}</p>
+            )}
           </div>
         )}
 

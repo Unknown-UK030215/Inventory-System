@@ -48,6 +48,17 @@ export default function Profile() {
   }, []);
 
   const logout = async () => {
+    const adminUser = JSON.parse(localStorage.getItem('admin_user') || '{}');
+    if (adminUser.id && supabase) {
+      await supabase
+        .from('admin_credentials')
+        .update({ 
+          is_online: false, 
+          last_active: new Date().toISOString() 
+        })
+        .eq('id', adminUser.id);
+    }
+    
     await supabase.auth.signOut();
     localStorage.removeItem("token");
     localStorage.removeItem("user");

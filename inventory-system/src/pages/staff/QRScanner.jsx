@@ -74,6 +74,7 @@ export default function QRScanner() {
       if (error && error.code !== 'PGRST116') throw error;
 
       if (foundAsset) {
+        console.log("Found asset from database:", foundAsset);
         setScannedAsset({
           ...foundAsset,
           problems: []
@@ -165,28 +166,39 @@ export default function QRScanner() {
       const user = storedUser ? JSON.parse(storedUser) : null;
       const reporterName = user?.name || user?.username || user?.email || "Unknown Staff";
       
-      const { error } = await supabase
-        .from('reports')
-        .insert([{
-          asset_name: scannedAsset.name,
-          serial: scannedAsset.serial,
-          type: reportType,
-          description: reportText,
-          reported_by: reporterName,
-          status: "Pending"
-        }]);
-
-      if (error) throw error;
+      const assetName = scannedAsset.name || scannedAsset.asset_name || scannedAsset.assets_name || "Unknown Asset";
+      console.log("Scanned asset object (full):", JSON.stringify(scannedAsset, null, 2));
+      console.log("Using asset name for report:", assetName);
       
-      // Update local state to show the new report
-      const newReport = {
-        asset_name: scannedAsset.name,
+      // Prepare report data with ALL possible column names
+      const reportData = {
+        name: assetName,
+        assets_name: assetName,
+        asset_name: assetName,
         serial: scannedAsset.serial,
         type: reportType,
         description: reportText,
         reported_by: reporterName,
+        status: "Pending",
         reported_at: new Date().toISOString(),
-        status: "Pending"
+        created_at: new Date().toISOString()
+      };
+      
+      console.log("Final report data to insert:", reportData);
+
+      const { error: insertError } = await supabase
+        .from('reports')
+        .insert([reportData]);
+
+      if (insertError) {
+        console.error("Supabase insert error details:", insertError);
+        throw insertError;
+      }
+      
+      // Update local state to show the new report
+      const newReport = {
+        ...reportData,
+        id: crypto.randomUUID() // Temporary ID for local state
       };
       
       setReports([newReport, ...reports]);
@@ -194,8 +206,8 @@ export default function QRScanner() {
       setShowReportForm(false);
       alert("Report submitted successfully!");
     } catch (err) {
-      console.error("Error submitting report:", err);
-      alert("Error submitting report: " + err.message);
+      console.error("Full error details:", err);
+      alert("Error submitting report: " + (err.message || JSON.stringify(err)));
     } finally {
       setIsSubmitting(false);
     }
@@ -373,13 +385,13 @@ export default function QRScanner() {
                       {report.type}
                     </span>
                     <span className="text-[10px] text-gray-400 font-medium">
-                      {new Date(report.reported_at).toLocaleString()}
+                      {new Date(report.reported_at || report.created_at || Date.now()).toLocaleString()}
                     </span>
                   </div>
                   <p className="text-gray-700 text-sm leading-relaxed">{report.description}</p>
                   <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center">
                     <p className="text-[10px] text-gray-500">By: <span className="font-bold">{report.reported_by}</span></p>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{report.status}</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{report.status || 'Pending'}</span>
                   </div>
                 </div>
               ))

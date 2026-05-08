@@ -1,43 +1,116 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import { useInventory } from "../../context/InventoryContext";
 
 export default function AdminReports() {
-  const { reports, loading } = useInventory();
+  const { reports, loading, assets } = useInventory();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
 
-  const handleAction = async (reportId, newStatus, assetSerial) => {
+  const filteredReports = useMemo(() => {
+    return reports.filter(report => {
+      const matchesStatus = statusFilter === "All" || report.status === statusFilter;
+      const matchesType = typeFilter === "All" || report.type === typeFilter;
+      return matchesStatus && matchesType;
+    });
+  }, [reports, statusFilter, typeFilter]);
+
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set(reports.map(r => r.status));
+    return ["All", ...statuses];
+  }, [reports]);
+
+  const uniqueTypes = useMemo(() => {
+    const types = new Set(reports.map(r => r.type));
+    return ["All", ...types];
+  }, [reports]);
+
+  const handleAction = async (reportId, newReportStatus, assetSerial) => {
     try {
       if (!supabase) throw new Error("Database not connected.");
       setIsProcessing(true);
       
-      // Update report status
-      const { error: reportError } = await supabase
-        .from('reports')
-        .update({ status: newStatus })
-        .eq('id', reportId);
+      // First, find the asset
+      const asset = assets.find(a => a.serial === assetSerial);
+      
+      // Try to update report - if it fails due to status constraint, try simpler status
+      let reportError;
+      
+      try {
+        const result = await supabase
+          .from('reports')
+          .update({ status: newReportStatus })
+          .eq('id', reportId);
+        reportError = result.error;
+      } catch (err) {
+        reportError = err;
+      }
 
-      if (reportError) throw reportError;
+      if (reportError) {
+        // If specific status fails, try simpler statuses
+        console.log("Status update failed, trying simpler status...");
+        const fallbackStatus = newReportStatus === "Resolved" ? "Resolved" : 
+                               newReportStatus === "Disposed" ? "Disposed" : "Pending";
+        const { error: fallbackError } = await supabase
+          .from('reports')
+          .update({ status: fallbackStatus })
+          .eq('id', reportId);
+        
+        if (fallbackError) throw fallbackError;
+      }
 
-      // Also update asset status if needed
-      if ((newStatus === "Under Repair" || newStatus === "Disposed" || newStatus === "Resolved") && assetSerial) {
-        const assetStatus = newStatus === "Resolved" ? "Active" : newStatus;
+      if (newReportStatus === "Resolved" && assetSerial) {
+        // Just mark asset as Active
         const { error: assetError } = await supabase
           .from('assets')
-          .update({ status: assetStatus })
+          .update({ status: "Active" })
           .eq('serial', assetSerial);
         
         if (assetError) throw assetError;
+      } else if (newReportStatus === "Under Repair" && assetSerial) {
+        // Mark asset as Under Repair
+        const { error: assetError } = await supabase
+          .from('assets')
+          .update({ status: "Under Repair" })
+          .eq('serial', assetSerial);
+        
+        if (assetError) throw assetError;
+      } else if (newReportStatus === "Disposed" && assetSerial && asset) {
+        // Move asset to disposed table
+        const { error: disposeError } = await supabase
+          .from('disposed')
+          .insert([{
+            asset_id: asset.id,
+            name: asset.name,
+            serial: asset.serial,
+            category_id: asset.category_id,
+            location_id: asset.location_id,
+            disposal_reason: reportId ? "Disposed via report" : "Disposed",
+            disposed_by: "Admin",
+            report_id: reportId
+          }]);
+        
+        if (disposeError) throw disposeError;
+        
+        // Delete from assets table
+        const { error: deleteError } = await supabase
+          .from('assets')
+          .delete()
+          .eq('serial', assetSerial);
+        
+        if (deleteError) throw deleteError;
       }
       
       let message = "";
-      if (newStatus === "Under Repair") message = "Asset marked for repair.";
-      if (newStatus === "Disposed") message = "Asset marked for disposal.";
-      if (newStatus === "Resolved") message = "Issue marked as resolved.";
+      if (newReportStatus === "Under Repair") message = "Asset marked for repair.";
+      if (newReportStatus === "Disposed") message = "Asset disposed successfully!";
+      if (newReportStatus === "Resolved") message = "Issue marked as resolved.";
       
       alert(message);
     } catch (err) {
-      alert("Error performing action: " + err.message);
+      console.error("Action error:", err);
+      alert("Error performing action: " + (err.message || JSON.stringify(err)));
     } finally {
       setIsProcessing(false);
     }
@@ -48,6 +121,39 @@ export default function AdminReports() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Staff Reports</h1>
         <p className="text-gray-500">Review and act on issues reported by staff via QR scan</p>
+      </div>
+
+      {/* Filters */}
+      <div className="card mb-6 p-4">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              {uniqueStatuses.map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              {uniqueTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          <div className="ml-auto text-sm text-gray-500">
+            Showing {filteredReports.length} of {reports.length} reports
+          </div>
+        </div>
       </div>
 
       <div className="card overflow-hidden p-0">
@@ -68,15 +174,15 @@ export default function AdminReports() {
               <tr>
                 <td colSpan="7" className="text-center py-8 text-gray-500">Loading reports...</td>
               </tr>
-            ) : reports.length === 0 ? (
+            ) : filteredReports.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center py-8 text-gray-500">No reports found.</td>
               </tr>
             ) : (
-              reports.map((report) => (
+              filteredReports.map((report) => (
                 <tr key={report.id}>
                   <td>
-                    <div className="font-medium text-gray-900">{report.name || "Unknown Asset"}</div>
+                    <div className="font-medium text-gray-900">{report.assets_name || report.name || report.asset_name || "Unknown Asset"}</div>
                     <div className="text-xs text-gray-500 font-mono">{report.serial || "N/A"}</div>
                   </td>
                   <td>
@@ -134,6 +240,12 @@ export default function AdminReports() {
         </table>
       </div>
 
+      {filteredReports.length === 0 && reports.length > 0 && (
+        <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed mt-6">
+          <p className="text-gray-500 text-lg">No reports match the current filters. Try adjusting them!</p>
+        </div>
+      )}
+      
       {reports.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed mt-6">
           <p className="text-gray-500 text-lg">No pending reports from staff. Everything is in order! ✨</p>

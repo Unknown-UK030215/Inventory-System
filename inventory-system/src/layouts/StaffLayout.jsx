@@ -54,11 +54,34 @@ export default function StaffLayout() {
       }
     };
 
+    const markOffline = async () => {
+      try {
+        await supabase
+          .from('users')
+          .update({ 
+            is_online: false,
+            last_active: new Date().toISOString() 
+          })
+          .eq('id', staffUser.id);
+      } catch (err) {
+        console.error('Failed to mark as offline:', err);
+      }
+    };
+
     // Run immediately and then every 30 seconds
     updateLastActive();
     const interval = setInterval(updateLastActive, 30000);
+    
+    // Mark as offline when page is closed
+    window.addEventListener('beforeunload', markOffline);
+    window.addEventListener('unload', markOffline);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', markOffline);
+      window.removeEventListener('unload', markOffline);
+      markOffline();
+    };
   }, []);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);

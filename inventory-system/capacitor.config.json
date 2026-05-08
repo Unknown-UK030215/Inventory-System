@@ -1,0 +1,13 @@
+{
+  "appId": "com.psu.inventory",
+  "appName": "PSU Inventory",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}

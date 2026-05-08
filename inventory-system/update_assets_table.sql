@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Add columns if users table already exists
 ALTER TABLE users 
 ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS last_active TIMESTAMPTZ;
 
 
@@ -116,11 +117,12 @@ CREATE TABLE IF NOT EXISTS admin_credentials (
   is_active BOOLEAN DEFAULT true, 
   last_active TIMESTAMPTZ, 
   created_at TIMESTAMPTZ DEFAULT now() 
-); 
+);
 
 -- Add columns if admin_credentials table already exists
 ALTER TABLE admin_credentials 
 ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS last_active TIMESTAMPTZ; 
 
 -- Set all existing users/admins to offline only if is_online is NULL (to avoid overwriting currently logged-in users)

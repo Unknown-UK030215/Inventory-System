@@ -10,6 +10,26 @@ export default function Users() {
   useEffect(() => {
     setPageTitle("User Management");
   }, [setPageTitle]);
+
+  // Auto-refresh and cleanup every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [refreshData]);
+
+  // Helper function to check if user is actually online
+  const isActuallyOnline = (user) => {
+    if (!user.is_online) return false;
+    if (!user.last_active) return false;
+    
+    const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
+    const lastActive = new Date(user.last_active).getTime();
+    
+    return lastActive > twoMinutesAgo;
+  };
   
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -163,13 +183,79 @@ export default function Users() {
     }
   };
 
+  const forceOffline = async (user) => {
+    if (window.confirm(`Force ${user.name} to appear offline?`)) {
+      try {
+        if (!supabase) throw new Error("Database not connected.");
+        
+        const table = user.role === 'admin' ? 'admin_credentials' : 'users';
+        
+        const { error: updateError } = await supabase
+          .from(table)
+          .update({ 
+            is_online: false, 
+            last_active: new Date().toISOString() 
+          })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+        refreshData();
+      } catch (err) {
+        alert("Error forcing offline: " + err.message);
+      }
+    }
+  };
+
+  const markInactiveOffline = async () => {
+    if (!window.confirm("Mark all users inactive for more than 2 minutes as offline?")) {
+      return;
+    }
+    
+    try {
+      if (!supabase) throw new Error("Database not connected.");
+      
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      
+      // Mark staff inactive
+      await supabase
+        .from('users')
+        .update({ is_online: false })
+        .eq('is_online', true)
+        .lt('last_active', twoMinutesAgo);
+      
+      // Mark admins inactive
+      await supabase
+        .from('admin_credentials')
+        .update({ is_online: false })
+        .eq('is_online', true)
+        .lt('last_active', twoMinutesAgo);
+      
+      refreshData();
+      alert("Inactive users marked as offline!");
+    } catch (err) {
+      alert("Error updating statuses: " + err.message);
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="mb-4">
         <p className="text-gray-500 text-lg">Create and manage staff accounts</p>
       </div>
       <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap gap-3 justify-end items-center">
+          <button 
+            onClick={() => refreshData()}
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition shadow-sm font-semibold"
+          >
+            🔄 Refresh
+          </button>
+          <button 
+            onClick={markInactiveOffline}
+            className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition shadow-sm font-semibold"
+          >
+            ⏱️ Cleanup Inactive
+          </button>
           <button 
             onClick={() => handleOpenModal()}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-semibold"
@@ -229,9 +315,9 @@ export default function Users() {
                     </td>
                     <td className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                        <span className={`w-2 h-2 rounded-full ${isActuallyOnline(user) ? 'bg-green-500' : 'bg-gray-400'}`}></span>
                         <span className="text-xs font-medium text-gray-700">
-                          {user.is_online ? 'Online' : 'Offline'}
+                          {isActuallyOnline(user) ? 'Online' : 'Offline'}
                         </span>
                       </div>
                       <div>
@@ -246,6 +332,14 @@ export default function Users() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {(user.is_online || isActuallyOnline(user)) && (
+                        <button 
+                          onClick={() => forceOffline(user)}
+                          className="px-3 py-1 text-xs font-semibold rounded-lg transition text-gray-700 hover:bg-gray-100 mr-1"
+                        >
+                          Force Offline
+                        </button>
+                      )}
                       <button 
                         onClick={() => toggleUserStatus(user)}
                         className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
