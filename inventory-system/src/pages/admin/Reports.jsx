@@ -1,30 +1,84 @@
 import { useState, useMemo } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "../../lib/supabase";
 import { useInventory } from "../../context/InventoryContext";
 
 export default function AdminReports() {
-  const { reports, loading, assets } = useInventory();
+  const { reports, loading, assets, refreshData } = useInventory();
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
 
   const filteredReports = useMemo(() => {
-    return reports.filter(report => {
-      const matchesStatus = statusFilter === "All" || report.status === statusFilter;
-      const matchesType = typeFilter === "All" || report.type === typeFilter;
-      return matchesStatus && matchesType;
-    });
+    return reports
+      .filter(report => {
+        const matchesStatus = statusFilter === "All" || report.status === statusFilter;
+        const matchesType = typeFilter === "All" || report.type === typeFilter;
+        return matchesStatus && matchesType;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at || a.reported_at || 0);
+        const dateB = new Date(b.created_at || b.reported_at || 0);
+        return dateB - dateA; // Newest first
+      });
   }, [reports, statusFilter, typeFilter]);
 
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set(reports.map(r => r.status));
-    return ["All", ...statuses];
+    // Always include all possible statuses
+    const allStatuses = ["Pending", "Under Repair", "Resolved", "Disposed"];
+    allStatuses.forEach(status => statuses.add(status));
+    return ["All", ...Array.from(statuses)];
   }, [reports]);
 
   const uniqueTypes = useMemo(() => {
     const types = new Set(reports.map(r => r.type));
-    return ["All", ...types];
+    // Always include these common types
+    const commonTypes = ["problem", "issue", "maintenance", "repair"];
+    commonTypes.forEach(type => types.add(type));
+    return ["All", ...Array.from(types)];
   }, [reports]);
+
+  const exportToExcel = () => {
+    const exportData = filteredReports.map((report, index) => ({
+      "No.": index + 1,
+      "Asset Name": report.assets_name || report.name || report.asset_name || "Unknown Asset",
+      "Serial Number": report.serial || "N/A",
+      "Type": report.type,
+      "Description": report.description || "N/A",
+      "Reported By": report.reported_by || "N/A",
+      "Date Reported": report.created_at || report.reported_at 
+        ? new Date(report.created_at || report.reported_at).toLocaleString() 
+        : "N/A",
+      "Status": report.status
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    
+    worksheet['!cols'] = [
+      { wch: 6 },
+      { wch: 30 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 40 },
+      { wch: 20 },
+      { wch: 25 },
+      { wch: 15 }
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+    
+    let filename = `PSU-Inventory-Reports-${new Date().toISOString().split('T')[0]}`;
+    if (statusFilter !== "All") {
+      filename += `-${statusFilter}`;
+    }
+    if (typeFilter !== "All") {
+      filename += `-${typeFilter}`;
+    }
+    
+    XLSX.writeFile(workbook, `${filename}.xlsx`);
+  };
 
   const handleAction = async (reportId, newReportStatus, assetSerial) => {
     try {
@@ -34,40 +88,31 @@ export default function AdminReports() {
       // First, find the asset
       const asset = assets.find(a => a.serial === assetSerial);
       
-      // Try to update report - if it fails due to status constraint, try simpler status
-      let reportError;
-      
+      // Update report status FIRST (no more check constraints!)
+      console.log("Updating report status to:", newReportStatus);
       try {
-        const result = await supabase
+        const { error: reportError } = await supabase
           .from('reports')
           .update({ status: newReportStatus })
           .eq('id', reportId);
-        reportError = result.error;
-      } catch (err) {
-        reportError = err;
-      }
-
-      if (reportError) {
-        // If specific status fails, try simpler statuses
-        console.log("Status update failed, trying simpler status...");
-        const fallbackStatus = newReportStatus === "Resolved" ? "Resolved" : 
-                               newReportStatus === "Disposed" ? "Disposed" : "Pending";
-        const { error: fallbackError } = await supabase
-          .from('reports')
-          .update({ status: fallbackStatus })
-          .eq('id', reportId);
         
-        if (fallbackError) throw fallbackError;
+        if (reportError) {
+          console.error("Report status update error:", reportError);
+          // If report fails, still try to update asset
+        }
+      } catch (e) {
+        console.error("Report status update exception:", e);
       }
-
+      
+      // Then update asset status or dispose asset
       if (newReportStatus === "Resolved" && assetSerial) {
-        // Just mark asset as Active
+        // Mark asset as Active
         const { error: assetError } = await supabase
           .from('assets')
           .update({ status: "Active" })
           .eq('serial', assetSerial);
         
-        if (assetError) throw assetError;
+        if (assetError) console.error("Asset status update error:", assetError);
       } else if (newReportStatus === "Under Repair" && assetSerial) {
         // Mark asset as Under Repair
         const { error: assetError } = await supabase
@@ -75,7 +120,7 @@ export default function AdminReports() {
           .update({ status: "Under Repair" })
           .eq('serial', assetSerial);
         
-        if (assetError) throw assetError;
+        if (assetError) console.error("Asset status update error:", assetError);
       } else if (newReportStatus === "Disposed" && assetSerial && asset) {
         // Move asset to disposed table
         const { error: disposeError } = await supabase
@@ -108,6 +153,9 @@ export default function AdminReports() {
       if (newReportStatus === "Resolved") message = "Issue marked as resolved.";
       
       alert(message);
+      
+      // Refresh all data to update dashboard and assets list
+      refreshData();
     } catch (err) {
       console.error("Action error:", err);
       alert("Error performing action: " + (err.message || JSON.stringify(err)));
@@ -150,8 +198,16 @@ export default function AdminReports() {
               ))}
             </select>
           </div>
-          <div className="ml-auto text-sm text-gray-500">
-            Showing {filteredReports.length} of {reports.length} reports
+          <div className="ml-auto flex gap-2 items-center">
+            <button 
+              onClick={exportToExcel}
+              className="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition shadow-sm font-semibold"
+            >
+              📤 Export Excel
+            </button>
+            <div className="text-sm text-gray-500">
+              Showing {filteredReports.length} of {reports.length} reports
+            </div>
           </div>
         </div>
       </div>
@@ -202,8 +258,9 @@ export default function AdminReports() {
                   <td>
                     <span className={`badge ${
                       report.status === 'Pending' ? 'badge-pending' :
-                      report.status === 'In Progress' ? 'bg-orange-100 text-orange-700' :
-                      report.status === 'Resolved' ? 'badge-active' : 'badge-danger'
+                      report.status === 'Under Repair' ? 'bg-yellow-100 text-yellow-700' :
+                      report.status === 'Disposed' ? 'bg-red-100 text-red-700' :
+                      report.status === 'Resolved' ? 'badge-active' : 'badge-pending'
                     }`}>
                       {report.status}
                     </span>

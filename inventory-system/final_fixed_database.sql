@@ -3,7 +3,27 @@
 -- =========================================
 
 
--- 0. EXTENSIONS & SEQUENCES
+-- 0. FIRST: DROP ALL CHECK CONSTRAINTS ONLY ON OUR INVENTORY TABLES!
+DO $$ 
+DECLARE
+    r RECORD;
+    target_tables TEXT[] := ARRAY['assets', 'reports', 'disposed', 'categories', 'locations', 'users', 'admin_credentials'];
+BEGIN
+    FOR r IN 
+        SELECT conname, conrelid::regclass AS table_name
+        FROM pg_constraint 
+        WHERE contype = 'c'
+        AND conrelid::regclass::TEXT = ANY(target_tables)
+    LOOP
+        EXECUTE 'ALTER TABLE ' || quote_ident(r.table_name::TEXT) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.conname);
+        RAISE NOTICE '✅ Dropped constraint % on table %', r.conname, r.table_name;
+    END LOOP;
+    
+    RAISE NOTICE '🎉 All check constraints dropped from inventory tables!';
+END $$;
+
+
+-- 1. EXTENSIONS & SEQUENCES
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 
@@ -148,13 +168,6 @@ BEGIN
         UPDATE reports SET name = 'Unknown Asset' WHERE name IS NULL;
     END IF;
 
-    -- Drop any status check constraints that might be causing errors
-    BEGIN
-        ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_status_check;
-    EXCEPTION
-        WHEN others THEN NULL;
-    END;
-
 END $$;
 
 
@@ -270,3 +283,82 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO admin_credentials (username, name, email)
 VALUES ('admin', 'System Administrator', 'admin@example.com')
 ON CONFLICT (username) DO NOTHING;
+
+
+
+-- =========================================
+-- BACKFILL SCRIPT: Fix asset statuses from reports
+-- =========================================
+
+-- Update assets to "Under Repair" if they have any report that is "Under Repair" or "Pending" or "Issue"
+UPDATE assets 
+SET status = 'Under Repair'
+WHERE serial IN (
+  SELECT DISTINCT serial 
+  FROM reports 
+  WHERE status IN ('Under Repair', 'Pending', 'Issue', 'Problem', 'In Progress')
+);
+
+-- Verify the changes
+SELECT 'Assets updated to Under Repair:' AS status, COUNT(*) AS count 
+FROM assets 
+WHERE status = 'Under Repair';
+
+SELECT 'Total active assets now:' AS status, COUNT(*) AS count 
+FROM assets 
+WHERE status = 'Active';
+
+SELECT 'Reports per status:' AS info;
+SELECT status, COUNT(*) AS count 
+FROM reports 
+GROUP BY status;
+
+
+
+-- =========================================
+-- DIAGNOSTIC & FORCE FIX SCRIPT (ADDED)
+-- =========================================
+
+-- Step 1: Show what we're working with
+SELECT '=== ASSET STATUS COUNTS ===' AS info;
+SELECT status, COUNT(*) AS count 
+FROM assets 
+GROUP BY status 
+ORDER BY status;
+
+SELECT '=== REPORT STATUS COUNTS ===' AS info;
+SELECT status, COUNT(*) AS count 
+FROM reports 
+GROUP BY status 
+ORDER BY status;
+
+SELECT '=== ASSETS WITH REPORTS (BUT STILL ACTIVE) ===' AS info;
+SELECT a.id, a.name, a.serial, a.status AS asset_status, r.status AS report_status
+FROM assets a
+JOIN reports r ON a.serial = r.serial
+WHERE a.status = 'Active'
+AND r.status IN ('Under Repair', 'Pending', 'Issue', 'Problem', 'In Progress');
+
+-- Step 2: FORCE UPDATE all assets that have ANY non-resolved report
+DO $$
+DECLARE
+    affected_count INTEGER;
+BEGIN
+    UPDATE assets 
+    SET status = 'Under Repair'
+    WHERE serial IN (
+      SELECT DISTINCT serial 
+      FROM reports 
+      WHERE status IN ('Under Repair', 'Pending', 'Issue', 'Problem', 'In Progress', 'Disposed')
+    );
+    
+    GET DIAGNOSTICS affected_count = ROW_COUNT;
+    RAISE NOTICE '✅ Updated % assets to Under Repair based on reports!', affected_count;
+END $$;
+
+-- Step 3: Show the final counts!
+SELECT '=== FINAL ASSET STATUS COUNTS ===' AS info;
+SELECT status, COUNT(*) AS count 
+FROM assets 
+GROUP BY status 
+ORDER BY status;

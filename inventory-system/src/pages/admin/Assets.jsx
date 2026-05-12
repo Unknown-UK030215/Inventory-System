@@ -45,40 +45,172 @@ export default function Assets() {
     remarks: ""
   });
 
+  const guessAssetInfoFromSerial = (serial) => {
+    let guessedName = "General Equipment";
+    let guessedCategoryName = "Electronics";
+    let guessedLocation = "";
+    let guessedStatus = "Active";
+    let guessedUacsCode = "10605020";
+    
+    if (!serial) return { 
+      name: guessedName, 
+      categoryName: guessedCategoryName,
+      location: guessedLocation,
+      status: guessedStatus,
+      uacsCode: guessedUacsCode
+    };
+
+    const serialUpper = serial.toUpperCase();
+
+    // First check for brand keywords (Acer, Dell, HP, etc.)
+    if (serialUpper.includes('ACER') || serialUpper.includes('NXK')) {
+      guessedName = "Acer Laptop";
+      guessedCategoryName = "Electronics";
+      guessedUacsCode = "10605020";
+    } else if (serialUpper.includes('DELL')) {
+      guessedName = "Dell Laptop";
+      guessedCategoryName = "Electronics";
+      guessedUacsCode = "10605020";
+    } else if (serialUpper.includes('HP') || serialUpper.includes('HEWLETT')) {
+      guessedName = "HP Laptop";
+      guessedCategoryName = "Electronics";
+      guessedUacsCode = "10605020";
+    } else if (serialUpper.includes('LENOVO')) {
+      guessedName = "Lenovo Laptop";
+      guessedCategoryName = "Electronics";
+      guessedUacsCode = "10605020";
+    } else if (serialUpper.includes('ASUS')) {
+      guessedName = "ASUS Laptop";
+      guessedCategoryName = "Electronics";
+      guessedUacsCode = "10605020";
+    } else if (serialUpper.includes('MAC') || serialUpper.includes('APPLE')) {
+      guessedName = "MacBook Pro";
+      guessedCategoryName = "Electronics";
+      guessedUacsCode = "10605020";
+    } else {
+      // Prefix-based guessing
+      const prefixMap = {
+        'DSK': { name: 'Desktop Computer', category: 'Electronics', uacs: '10605020' },
+        'LAP': { name: 'Laptop', category: 'Electronics', uacs: '10605020' },
+        'MON': { name: 'Monitor', category: 'Electronics', uacs: '10605020' },
+        'CHR': { name: 'Office Chair', category: 'Furniture', uacs: '10605010' },
+        'TAB': { name: 'Tablet', category: 'Electronics', uacs: '10605020' },
+        'PHN': { name: 'Smartphone', category: 'Electronics', uacs: '10605020' },
+        'PRN': { name: 'Printer', category: 'Electronics', uacs: '10605020' },
+        'CAM': { name: 'Camera', category: 'Electronics', uacs: '10605020' },
+        'PROJ': { name: 'Projector', category: 'Electronics', uacs: '10605020' },
+        'AIR': { name: 'Air Conditioning Unit', category: 'Electronics', uacs: '10605030' },
+        'AC': { name: 'Air Conditioner', category: 'Electronics', uacs: '10605030' },
+        'ICT': { name: 'ICT Equipment', category: 'Electronics', uacs: '10605020' },
+        'TBL': { name: 'Office Table', category: 'Furniture', uacs: '10605010' },
+        'TABLE': { name: 'Office Table', category: 'Furniture', uacs: '10605010' },
+        'FURN': { name: 'Office Furniture', category: 'Furniture', uacs: '10605010' },
+        'NX': { name: 'Acer Laptop', category: 'Electronics', uacs: '10605020' },
+        'NXK': { name: 'Acer Laptop', category: 'Electronics', uacs: '10605020' },
+        'NXKS': { name: 'Acer Laptop', category: 'Electronics', uacs: '10605020' },
+        'SP': { name: 'Special Equipment', category: 'Electronics', uacs: '10605020' }
+      };
+      
+      for (const [prefix, info] of Object.entries(prefixMap)) {
+        if (serialUpper.startsWith(prefix) || serialUpper.includes(prefix)) {
+          guessedName = info.name;
+          guessedCategoryName = info.category;
+          guessedUacsCode = info.uacs;
+          break;
+        }
+      }
+    }
+
+    return { 
+      name: guessedName, 
+      categoryName: guessedCategoryName,
+      location: guessedLocation,
+      status: guessedStatus,
+      uacsCode: guessedUacsCode
+    };
+  };
+
+  const handleSerialChange = async (e) => {
+    const newSerial = e.target.value;
+    setAssetFormData(prev => ({ ...prev, serial: newSerial }));
+
+    if (editingAsset) return;
+
+    const existingAsset = assets.find(a => a.serial === newSerial);
+    if (existingAsset) {
+      console.log("Found existing asset, auto-filling all fields");
+      setAssetFormData({
+        name: existingAsset.name,
+        category_id: existingAsset.category_id || null,
+        location_id: existingAsset.location_id || null,
+        status: existingAsset.status,
+        serial: existingAsset.serial,
+        ref_id: existingAsset.ref_id || null,
+        assigned_to_name: existingAsset.assigned_to_name || "None",
+        purchase_date: existingAsset.purchase_date || null,
+        uacs_code: existingAsset.uacs_code || null,
+        unit_cost: existingAsset.unit_cost || null,
+        qty: existingAsset.qty || 1,
+        total_amount: existingAsset.total_amount || null,
+        remarks: existingAsset.remarks || null
+      });
+      return;
+    }
+
+    const { 
+      name: guessedName, 
+      categoryName: guessedCategoryName,
+      uacsCode: guessedUacsCode
+    } = guessAssetInfoFromSerial(newSerial);
+    const category = categories.find(c => c.name === guessedCategoryName);
+    const defaultLocation = locations.length > 0 ? locations[0].id : null;
+    
+    setAssetFormData(prev => ({
+      ...prev,
+      name: guessedName,
+      category_id: category?.id || null,
+      location_id: defaultLocation,
+      uacs_code: guessedUacsCode || null,
+      status: "Active",
+      qty: 1,
+      assigned_to_name: "None"
+    }));
+  };
+
   const handleOpenAssetModal = (asset = null) => {
     if (asset) {
       setEditingAsset(asset);
       setAssetFormData({
         name: asset.name,
-        category_id: asset.category_id,
-        location_id: asset.location_id,
+        category_id: asset.category_id || null,
+        location_id: asset.location_id || null,
         status: asset.status,
         serial: asset.serial,
-        ref_id: asset.ref_id || "",
+        ref_id: asset.ref_id || null,
         assigned_to_name: asset.assigned_to_name || "None",
-        purchase_date: asset.purchase_date || "",
-        uacs_code: asset.uacs_code || "",
-        unit_cost: asset.unit_cost || "",
+        purchase_date: asset.purchase_date || null,
+        uacs_code: asset.uacs_code || null,
+        unit_cost: asset.unit_cost || null,
         qty: asset.qty || 1,
-        total_amount: asset.total_amount || "",
-        remarks: asset.remarks || ""
+        total_amount: asset.total_amount || null,
+        remarks: asset.remarks || null
       });
     } else {
       setEditingAsset(null);
       setAssetFormData({
         name: "",
-        category_id: "",
-        location_id: "",
+        category_id: null,
+        location_id: null,
         status: "Active",
         serial: `SN-${Math.floor(1000 + Math.random() * 9000)}`,
-        ref_id: "",
+        ref_id: null,
         assigned_to_name: "None",
-        purchase_date: "",
-        uacs_code: "",
-        unit_cost: "",
+        purchase_date: null,
+        uacs_code: null,
+        unit_cost: null,
         qty: 1,
-        total_amount: "",
-        remarks: ""
+        total_amount: null,
+        remarks: null
       });
     }
     setShowAssetModal(true);
@@ -96,23 +228,104 @@ export default function Assets() {
     try {
       if (!supabase) throw new Error("Database not connected.");
 
+      // Helper function to convert empty strings to null
+      const sanitizeField = (value) => {
+        if (value === "" || value === undefined) return null;
+        return value;
+      };
+
+      // If it's a new asset, auto-fill all missing details!
+      let finalAssetData = { ...assetFormData };
+      
+      if (!editingAsset) {
+        // First, check if serial already exists to auto-fill
+        const existingAsset = assets.find(a => a.serial === finalAssetData.serial);
+        if (existingAsset) {
+          finalAssetData = {
+            ...finalAssetData,
+            name: existingAsset.name || finalAssetData.name || "General Equipment",
+            category_id: existingAsset.category_id || finalAssetData.category_id || (categories.length > 0 ? categories[0].id : null),
+            location_id: existingAsset.location_id || finalAssetData.location_id || (locations.length > 0 ? locations[0].id : null),
+            status: existingAsset.status || "Active",
+            ref_id: existingAsset.ref_id || finalAssetData.ref_id || null,
+            assigned_to_name: existingAsset.assigned_to_name || finalAssetData.assigned_to_name || "None",
+            purchase_date: existingAsset.purchase_date || finalAssetData.purchase_date || null,
+            uacs_code: existingAsset.uacs_code || finalAssetData.uacs_code || "10605020",
+            unit_cost: existingAsset.unit_cost || finalAssetData.unit_cost || null,
+            qty: existingAsset.qty || finalAssetData.qty || 1,
+            total_amount: existingAsset.total_amount || finalAssetData.total_amount || null,
+            remarks: existingAsset.remarks || finalAssetData.remarks || null
+          };
+        } else {
+          // If no existing asset, guess from serial prefix!
+          const { 
+            name: guessedName, 
+            categoryName: guessedCategoryName, 
+            uacsCode: guessedUacsCode 
+          } = guessAssetInfoFromSerial(finalAssetData.serial);
+          
+          let category = categories.find(c => c.name === guessedCategoryName);
+          if (!category && categories.length > 0) {
+            category = categories[0];
+          }
+          
+          const defaultLocation = locations.length > 0 ? locations[0].id : null;
+          
+          finalAssetData = {
+            ...finalAssetData,
+            name: finalAssetData.name || guessedName || "General Equipment",
+            category_id: finalAssetData.category_id || category?.id || (categories.length > 0 ? categories[0].id : null),
+            location_id: finalAssetData.location_id || defaultLocation,
+            status: finalAssetData.status || "Active",
+            assigned_to_name: finalAssetData.assigned_to_name || "None",
+            qty: finalAssetData.qty || 1,
+            uacs_code: finalAssetData.uacs_code || guessedUacsCode || "10605020",
+            ref_id: finalAssetData.ref_id || null,
+            purchase_date: finalAssetData.purchase_date || null,
+            unit_cost: finalAssetData.unit_cost || null,
+            total_amount: finalAssetData.total_amount || null,
+            remarks: finalAssetData.remarks || null
+          };
+        }
+      } else {
+        // For editing, also ensure all fields are filled
+        finalAssetData = {
+          ...finalAssetData,
+          name: finalAssetData.name || "General Equipment",
+          category_id: finalAssetData.category_id || (categories.length > 0 ? categories[0].id : null),
+          location_id: finalAssetData.location_id || (locations.length > 0 ? locations[0].id : null),
+          status: finalAssetData.status || "Active",
+          assigned_to_name: finalAssetData.assigned_to_name || "None",
+          qty: finalAssetData.qty || 1,
+          uacs_code: finalAssetData.uacs_code || "10605020",
+          ref_id: sanitizeField(finalAssetData.ref_id),
+          purchase_date: sanitizeField(finalAssetData.purchase_date),
+          unit_cost: sanitizeField(finalAssetData.unit_cost),
+          total_amount: sanitizeField(finalAssetData.total_amount),
+          remarks: sanitizeField(finalAssetData.remarks)
+        };
+      }
+
+      console.log("Final asset data to save:", finalAssetData);
+
       if (editingAsset) {
         const { error: updateError } = await supabase
           .from('assets')
-          .update(assetFormData)
+          .update(finalAssetData)
           .eq('id', editingAsset.id);
 
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
           .from('assets')
-          .insert([assetFormData]);
+          .insert([finalAssetData]);
 
         if (insertError) throw insertError;
       }
       
       setShowAssetModal(false);
     } catch (err) {
+      console.error("Error saving asset details:", err);
       alert("Error saving asset: " + err.message);
     } finally {
       setIsSubmitting(false);
@@ -605,35 +818,35 @@ export default function Assets() {
                 <tr key={asset.id} className="hover:bg-blue-50 transition-colors">
                   <td className="px-3 py-3 text-center text-gray-500 font-medium">{index + 1}</td>
                   <td className="px-3 py-3 text-sm text-gray-600">
-                    {asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A'}
+                    {asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : ''}
                   </td>
                   <td className="px-3 py-3 text-gray-600 font-mono">
-                    <div className="text-truncate" title={asset.ref_id || 'N/A'}>{asset.ref_id || 'N/A'}</div>
+                    <div className="text-truncate" title={asset.ref_id || ''}>{asset.ref_id || ''}</div>
                   </td>
                   <td className="px-3 py-3 text-gray-600 font-mono">
-                    <div className="text-truncate" title={asset.uacs_code || 'N/A'}>{asset.uacs_code || 'N/A'}</div>
+                    <div className="text-truncate" title={asset.uacs_code || '10605020'}>{asset.uacs_code || '10605020'}</div>
                   </td>
                   <td className="px-3 py-3 font-medium text-gray-800">
                     <div className="text-truncate" title={asset.name}>{asset.name}</div>
                   </td>
                   <td className="px-3 py-3 text-right text-gray-600">
-                    {asset.unit_cost ? `₱${Number(asset.unit_cost).toLocaleString()}` : 'N/A'}
+                    {asset.unit_cost ? `₱${Number(asset.unit_cost).toLocaleString()}` : ''}
                   </td>
                   <td className="px-3 py-3 text-center text-gray-600 font-medium">{asset.qty || 1}</td>
                   <td className="px-3 py-3 text-gray-600 font-mono">
                     <div className="text-truncate" title={asset.serial}>{asset.serial}</div>
                   </td>
                   <td className="px-3 py-3 text-gray-600">
-                    <div className="text-truncate" title={asset.assigned_to_name || 'Unassigned'}>{asset.assigned_to_name || 'Unassigned'}</div>
+                    <div className="text-truncate" title={asset.assigned_to_name || 'None'}>{asset.assigned_to_name || 'None'}</div>
                   </td>
                   <td className="px-3 py-3 text-right text-gray-600">
-                    {asset.total_amount ? `₱${Number(asset.total_amount).toLocaleString()}` : (asset.unit_cost && asset.qty ? `₱${(Number(asset.unit_cost) * (asset.qty || 1)).toLocaleString()}` : 'N/A')}
+                    {asset.total_amount ? `₱${Number(asset.total_amount).toLocaleString()}` : (asset.unit_cost && asset.qty ? `₱${(Number(asset.unit_cost) * (asset.qty || 1)).toLocaleString()}` : '')}
                   </td>
                   <td className="px-3 py-3 text-gray-600">
-                    <div className="text-truncate" title={asset.locations?.name || 'No Location'}>{asset.locations?.name || 'No Location'}</div>
+                    <div className="text-truncate" title={asset.locations?.name || (locations.length > 0 ? locations[0].name : '')}>{asset.locations?.name || (locations.length > 0 ? locations[0].name : '')}</div>
                   </td>
                   <td className="px-3 py-3 text-gray-600">
-                    <div className="text-truncate" title={asset.remarks || 'N/A'}>{asset.remarks || 'N/A'}</div>
+                    <div className="text-truncate" title={asset.remarks || ''}>{asset.remarks || ''}</div>
                   </td>
                   <td className="px-3 py-3 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-2">
@@ -692,15 +905,15 @@ export default function Assets() {
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Date Acquired</h3>
-                  <p className="text-gray-700">{selectedAsset.purchase_date ? new Date(selectedAsset.purchase_date).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-gray-700">{selectedAsset.purchase_date ? new Date(selectedAsset.purchase_date).toLocaleDateString() : ''}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">ICS Number</h3>
-                  <p className="text-gray-700 font-mono">{selectedAsset.ref_id || 'N/A'}</p>
+                  <p className="text-gray-700 font-mono">{selectedAsset.ref_id || ''}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">UACS Code</h3>
-                  <p className="text-gray-700 font-mono">{selectedAsset.uacs_code || 'N/A'}</p>
+                  <p className="text-gray-700 font-mono">{selectedAsset.uacs_code || '10605020'}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Description</h3>
@@ -711,7 +924,7 @@ export default function Assets() {
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Unit Cost</h3>
-                  <p className="text-gray-700">{selectedAsset.unit_cost ? `₱${Number(selectedAsset.unit_cost).toLocaleString()}` : 'N/A'}</p>
+                  <p className="text-gray-700">{selectedAsset.unit_cost ? `₱${Number(selectedAsset.unit_cost).toLocaleString()}` : ''}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">QTY</h3>
@@ -723,7 +936,7 @@ export default function Assets() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Person Accountable</h3>
-                  <p className="text-gray-700">{selectedAsset.assigned_to_name || 'Unassigned'}</p>
+                  <p className="text-gray-700">{selectedAsset.assigned_to_name || 'None'}</p>
                 </div>
               </div>
 
@@ -735,16 +948,16 @@ export default function Assets() {
                       ? `₱${Number(selectedAsset.total_amount).toLocaleString()}` 
                       : (selectedAsset.unit_cost && selectedAsset.qty 
                           ? `₱${(Number(selectedAsset.unit_cost) * (selectedAsset.qty || 1)).toLocaleString()}` 
-                          : 'N/A')}
+                          : '')}
                   </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Location</h3>
-                  <p className="text-gray-700">{selectedAsset.locations?.name || 'No Location'}</p>
+                  <p className="text-gray-700">{selectedAsset.locations?.name || (locations.length > 0 ? locations[0].name : '')}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Category</h3>
-                  <p className="text-gray-700">{selectedAsset.categories?.name || 'Uncategorized'}</p>
+                  <p className="text-gray-700">{selectedAsset.categories?.name || (categories.length > 0 ? categories[0].name : 'Electronics')}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Status</h3>
@@ -757,7 +970,7 @@ export default function Assets() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Remarks</h3>
-                  <p className="text-gray-700">{selectedAsset.remarks || 'N/A'}</p>
+                  <p className="text-gray-700">{selectedAsset.remarks || ''}</p>
                 </div>
               </div>
             </div>
@@ -802,9 +1015,8 @@ export default function Assets() {
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Description (Asset Name)</label>
                 <input
                   type="text"
-                  required
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                  value={assetFormData.name}
+                  value={assetFormData.name || ""}
                   onChange={(e) => setAssetFormData({...assetFormData, name: e.target.value})}
                   placeholder='e.g. 2.5HP split type inverter airconditioning'
                 />
@@ -814,10 +1026,9 @@ export default function Assets() {
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Category</label>
                   <select
-                    required
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.category_id}
-                    onChange={(e) => setAssetFormData({...assetFormData, category_id: e.target.value})}
+                    value={assetFormData.category_id || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, category_id: e.target.value || null})}
                   >
                     <option value="">Select Category</option>
                     {categories.map(cat => (
@@ -828,10 +1039,9 @@ export default function Assets() {
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Location</label>
                   <select
-                    required
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.location_id}
-                    onChange={(e) => setAssetFormData({...assetFormData, location_id: e.target.value})}
+                    value={assetFormData.location_id || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, location_id: e.target.value || null})}
                   >
                     <option value="">Select Location</option>
                     {locations.map(loc => (
@@ -847,15 +1057,15 @@ export default function Assets() {
                   <input
                     type="date"
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.purchase_date}
-                    onChange={(e) => setAssetFormData({...assetFormData, purchase_date: e.target.value})}
+                    value={assetFormData.purchase_date || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, purchase_date: e.target.value || null})}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Status</label>
                   <select
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.status}
+                    value={assetFormData.status || "Active"}
                     onChange={(e) => setAssetFormData({...assetFormData, status: e.target.value})}
                   >
                     <option value="Active">Active</option>
@@ -871,8 +1081,8 @@ export default function Assets() {
                   <input
                     type="text"
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.ref_id}
-                    onChange={(e) => setAssetFormData({...assetFormData, ref_id: e.target.value})}
+                    value={assetFormData.ref_id || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, ref_id: e.target.value || null})}
                     placeholder="e.g. ICT 21-004"
                   />
                 </div>
@@ -881,8 +1091,8 @@ export default function Assets() {
                   <input
                     type="text"
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.uacs_code}
-                    onChange={(e) => setAssetFormData({...assetFormData, uacs_code: e.target.value})}
+                    value={assetFormData.uacs_code || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, uacs_code: e.target.value || null})}
                     placeholder="e.g. 10605020"
                   />
                 </div>
@@ -893,19 +1103,23 @@ export default function Assets() {
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Property Number</label>
                   <input
                     type="text"
-                    required
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none bg-gray-50"
-                    value={assetFormData.serial}
-                    onChange={(e) => setAssetFormData({...assetFormData, serial: e.target.value})}
-                    placeholder="e.g. PSU ICT 164 21-167"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.serial || ""}
+                    onChange={handleSerialChange}
+                    placeholder="Enter serial number to auto-fill info"
                   />
+                  {!editingAsset && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Tip: Enter an existing serial to auto-fill, or a new serial to guess info from prefix!
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Person Accountable</label>
                   <input
                     type="text"
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.assigned_to_name}
+                    value={assetFormData.assigned_to_name || "None"}
                     onChange={(e) => setAssetFormData({...assetFormData, assigned_to_name: e.target.value})}
                     placeholder="e.g. Banzuelo, Joyce M."
                   />
@@ -915,14 +1129,14 @@ export default function Assets() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Unit Cost</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.unit_cost}
-                    onChange={(e) => setAssetFormData({...assetFormData, unit_cost: e.target.value})}
-                    placeholder="e.g. 74500.00"
-                  />
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                  value={assetFormData.unit_cost || ""}
+                  onChange={(e) => setAssetFormData({...assetFormData, unit_cost: e.target.value || null})}
+                  placeholder="e.g. 74500.00"
+                />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">QTY</label>
@@ -930,7 +1144,7 @@ export default function Assets() {
                     type="number"
                     min="1"
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.qty}
+                    value={assetFormData.qty || 1}
                     onChange={(e) => setAssetFormData({...assetFormData, qty: parseInt(e.target.value) || 1})}
                     placeholder="1"
                   />
@@ -941,8 +1155,8 @@ export default function Assets() {
                     type="number"
                     step="0.01"
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
-                    value={assetFormData.total_amount}
-                    onChange={(e) => setAssetFormData({...assetFormData, total_amount: e.target.value})}
+                    value={assetFormData.total_amount || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, total_amount: e.target.value || null})}
                     placeholder="Leave blank to auto-calculate"
                   />
                 </div>

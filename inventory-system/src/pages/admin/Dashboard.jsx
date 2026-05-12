@@ -15,7 +15,7 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { assets, loading, reports } = useInventory();
+  const { assets, loading, reports, disposed } = useInventory();
   const { setPageTitle } = usePageTitle();
 
   useEffect(() => {
@@ -30,33 +30,70 @@ export default function Dashboard() {
   ]);
   const [healthData, setHealthData] = useState([
     { status: 'Active', count: 0, color: '#10B981' },
-    { status: 'Minor Issue', count: 0, color: '#3B82F6' },
-    { status: 'In Repair', count: 0, color: '#F59E0B' },
+    { status: 'Issues/Repair', count: 0, color: '#F59E0B' },
     { status: 'Disposed', count: 0, color: '#EF4444' },
   ]);
 
   useEffect(() => {
     if (assets) {
+      console.log("=== DASHBOARD ASSETS DATA ===");
+      console.log("All assets:", assets);
+      console.log("Asset statuses:", assets.map(a => ({ id: a.id, name: a.name, status: a.status })));
+      
       const total = assets.length;
-      const active = assets.filter(a => a.status === 'Active').length;
-      const repair = assets.filter(a => a.status === 'Under Repair').length;
-      const disposed = assets.filter(a => a.status === 'Disposed').length;
+      
+      // Active assets: ONLY assets with status exactly 'Active'
+      const activeAssets = assets.filter(a => a.status?.toLowerCase() === 'active');
+      const active = activeAssets.length;
+      
+      console.log("Active assets:", activeAssets.map(a => ({ name: a.name, status: a.status })));
+      
+      // Issues/Repair assets: ALL non-active, non-disposed assets
+      const repairAssets = assets.filter(a => {
+        const status = a.status?.toLowerCase() || '';
+        const isActive = status === 'active';
+        const isIssueRepair = status.includes('repair') || 
+                              status.includes('under') || 
+                              status.includes('issue') || 
+                              status.includes('problem') ||
+                              status === 'in progress' ||
+                              status === 'pending';
+        return !isActive && isIssueRepair;
+      });
+      const repair = repairAssets.length;
+      
+      console.log("Issues/Repair assets:", repairAssets.map(a => ({ name: a.name, status: a.status })));
+      
+      // Disposed assets are in the disposed table
+      const disposedCount = disposed.length;
+      
+      console.log("FINAL COUNTS:");
+      console.log("- Total Assets (in assets table):", total);
+      console.log("- Active:", active);
+      console.log("- Issues/Repair:", repair);
+      console.log("- Disposed (in disposed table):", disposedCount);
+      
+      // Verify active count decreases when assets move to repair/disposed:
+      const expectedActive = total - repair;
+      console.log("Expected active (total - repair):", expectedActive);
+      if (active !== expectedActive) {
+        console.warn("⚠️  Active count doesn't match expected!");
+      }
 
       setStats([
         { label: "Total Assets", value: total.toString(), color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
         { label: "Active", value: active.toString(), color: "text-green-600", bg: "bg-green-50", icon: "✅" },
         { label: "Issues/Repair", value: repair.toString(), color: "text-yellow-600", bg: "bg-yellow-50", icon: "🛠️" },
-        { label: "Disposed", value: disposed.toString(), color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
+        { label: "Disposed", value: disposedCount.toString(), color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
       ]);
 
       setHealthData([
         { status: 'Active', count: active, color: '#10B981' },
-        { status: 'Minor Issue', count: assets.filter(a => a.status === 'Minor Issue').length, color: '#3B82F6' },
-        { status: 'In Repair', count: assets.filter(a => a.status === 'Under Repair').length, color: '#F59E0B' },
-        { status: 'Disposed', count: disposed, color: '#EF4444' },
+        { status: 'Issues/Repair', count: repair, color: '#F59E0B' },
+        { status: 'Disposed', count: disposedCount, color: '#EF4444' },
       ]);
     }
-  }, [assets]);
+  }, [assets, disposed]);
 
   const shortcuts = [
     { title: "Add Asset", icon: "➕", path: "/admin/assets" },

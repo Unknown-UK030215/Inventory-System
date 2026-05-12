@@ -23,21 +23,31 @@ export function InventoryProvider({ children }) {
       setLoading(true);
       setError(null);
 
+      // First, get the exact counts from Supabase
+      const [assetsCountRes, reportsCountRes] = await Promise.all([
+        supabase.from('assets').select('*', { count: 'exact', head: true }),
+        supabase.from('reports').select('*', { count: 'exact', head: true })
+      ]);
+      
+      console.log("=== SUPABASE EXACT COUNTS ===");
+      console.log("Total assets in DB:", assetsCountRes.count);
+      console.log("Total reports in DB:", reportsCountRes.count);
+      
       let reportsRes;
       try {
-        reportsRes = await supabase.from('reports').select('*').order('created_at', { ascending: false });
+        reportsRes = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(0);
         if (reportsRes.error) throw reportsRes.error;
       } catch (err) {
-        reportsRes = await supabase.from('reports').select('*').order('reported_at', { ascending: false });
+        reportsRes = await supabase.from('reports').select('*').order('reported_at', { ascending: false }).limit(0);
       }
 
       const [assetsRes, disposedRes, catsRes, locsRes, usersRes, adminsRes] = await Promise.all([
-        supabase.from('assets').select('*, categories(name), locations(name)'),
-        supabase.from('disposed').select('*, categories(name), locations(name)'),
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('locations').select('*').order('name'),
-        supabase.from('users').select('*').order('name'),
-        supabase.from('admin_credentials').select('*').order('name')
+        supabase.from('assets').select('*, categories(name), locations(name)').limit(0),
+        supabase.from('disposed').select('*, categories(name), locations(name)').limit(0),
+        supabase.from('categories').select('*').order('name').limit(0),
+        supabase.from('locations').select('*').order('name').limit(0),
+        supabase.from('users').select('*').order('name').limit(0),
+        supabase.from('admin_credentials').select('*').order('name').limit(0)
       ]);
 
       if (assetsRes.error) {
@@ -65,6 +75,11 @@ export function InventoryProvider({ children }) {
         throw new Error(`Admins: ${adminsRes.error.message}`);
       }
 
+      console.log("=== DATA FETCH RESULTS ===");
+      console.log("Assets fetched count:", assetsRes.data?.length || 0);
+      console.log("Reports fetched count:", reportsRes.data?.length || 0);
+      console.log("Disposed fetched count:", disposedRes.data?.length || 0);
+      
       setAssets(assetsRes.data || []);
       setDisposed(disposedRes.data || []);
       setCategories(catsRes.data || []);
@@ -89,11 +104,48 @@ export function InventoryProvider({ children }) {
     if (!supabase) return;
 
     // Set up real-time subscriptions
-    const assetsSubscription = supabase
-      .channel('inventory-changes')
-      .on('postgres_changes', { event: '*', table: 'assets' }, () => fetchData())
-      .on('postgres_changes', { event: '*', table: 'disposed' }, () => fetchData())
-      .on('postgres_changes', { event: '*', table: 'reports' }, () => fetchData())
+    const channel = supabase
+      .channel('inventory-realtime')
+      // Real-time for assets
+      .on('postgres_changes', { event: '*', table: 'assets' }, (payload) => {
+        console.log('Real-time assets update:', payload);
+        if (payload.eventType === 'INSERT') {
+          setAssets(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setAssets(prev => prev.map(asset => 
+            asset.id === payload.new.id ? payload.new : asset
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setAssets(prev => prev.filter(asset => asset.id !== payload.old.id));
+        }
+      })
+      // Real-time for reports
+      .on('postgres_changes', { event: '*', table: 'reports' }, (payload) => {
+        console.log('Real-time reports update:', payload);
+        if (payload.eventType === 'INSERT') {
+          setReports(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setReports(prev => prev.map(report => 
+            report.id === payload.new.id ? payload.new : report
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setReports(prev => prev.filter(report => report.id !== payload.old.id));
+        }
+      })
+      // Real-time for disposed
+      .on('postgres_changes', { event: '*', table: 'disposed' }, (payload) => {
+        console.log('Real-time disposed update:', payload);
+        if (payload.eventType === 'INSERT') {
+          setDisposed(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setDisposed(prev => prev.map(item => 
+            item.id === payload.new.id ? payload.new : item
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setDisposed(prev => prev.filter(item => item.id !== payload.old.id));
+        }
+      })
+      // Real-time for categories, locations, users (fallback to full fetch)
       .on('postgres_changes', { event: '*', table: 'categories' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'locations' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'users' }, () => fetchData())
@@ -101,7 +153,7 @@ export function InventoryProvider({ children }) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(assetsSubscription);
+      supabase.removeChannel(channel);
     };
   }, []);
 

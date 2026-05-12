@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "../../lib/supabase";
+import { useInventory } from "../../context/InventoryContext";
 
 export default function QRScanner() {
+  const { refreshData, assets } = useInventory();
   const [scannedAsset, setScannedAsset] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState(null);
@@ -195,6 +197,21 @@ export default function QRScanner() {
         throw insertError;
       }
       
+      // AUTO-UPDATE ASSET STATUS TO "Under Repair" IN REAL-TIME!
+      console.log("Updating asset status to Under Repair...");
+      const { error: assetUpdateError } = await supabase
+        .from('assets')
+        .update({ status: "Under Repair" })
+        .eq('serial', scannedAsset.serial);
+      
+      if (assetUpdateError) {
+        console.error("Error updating asset status:", assetUpdateError);
+        // Don't throw - still show report success
+      } else {
+        // Update local scannedAsset status too
+        setScannedAsset(prev => prev ? { ...prev, status: "Under Repair" } : null);
+      }
+      
       // Update local state to show the new report
       const newReport = {
         ...reportData,
@@ -204,7 +221,10 @@ export default function QRScanner() {
       setReports([newReport, ...reports]);
       setReportText("");
       setShowReportForm(false);
-      alert("Report submitted successfully!");
+      alert("Report submitted successfully! Asset marked for repair.");
+      
+      // Refresh data to update dashboard and assets list
+      refreshData();
     } catch (err) {
       console.error("Full error details:", err);
       alert("Error submitting report: " + (err.message || JSON.stringify(err)));
