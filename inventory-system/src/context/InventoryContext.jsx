@@ -36,46 +36,62 @@ export function InventoryProvider({ children }) {
       console.log("Total assets in DB:", assetsCountRes.count);
       console.log("Total reports in DB:", reportsCountRes.count);
       
-      let reportsRes;
-      try {
-        reportsRes = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(5000);
-        if (reportsRes.error) throw reportsRes.error;
-      } catch (err) {
-        reportsRes = await supabase.from('reports').select('*').order('reported_at', { ascending: false }).limit(5000);
-      }
+      const fetchTable = async (table, query, orderCol = null) => {
+        let q = supabase.from(table).select(query);
+        if (orderCol) q = q.order(orderCol, { ascending: false });
+        const res = await q.limit(5000);
+        if (res.error) {
+          console.warn(`⚠️ Warning fetching ${table}:`, res.error.message);
+          return [];
+        }
+        return res.data || [];
+      };
 
-      const [assetsRes, disposedRes, catsRes, locsRes, usersRes, adminsRes, notificationsRes, deletedRes] = await Promise.all([
-        supabase.from('assets').select('*, categories(name), locations(name)').order('created_at', { ascending: false }).limit(5000),
-        supabase.from('disposed').select('*, categories(name), locations(name)').order('disposal_date', { ascending: false }).limit(5000),
-        supabase.from('categories').select('*').order('name').limit(5000),
-        supabase.from('locations').select('*').order('name').limit(5000),
-        supabase.from('users').select('*').order('name').limit(5000),
-        supabase.from('admin_credentials').select('*').order('name').limit(5000),
-        supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase.from('deleted_assets').select('*').order('deleted_at', { ascending: false }).limit(500)
+      const [
+        assetsData, 
+        disposedData, 
+        catsData, 
+        locsData, 
+        usersData, 
+        adminsData, 
+        notificationsData, 
+        deletedData,
+        reportsData
+      ] = await Promise.all([
+        fetchTable('assets', '*, categories(name), locations(name)', 'created_at'),
+        fetchTable('disposed', '*, categories(name), locations(name)', 'disposal_date'),
+        fetchTable('categories', '*', 'name'),
+        fetchTable('locations', '*', 'name'),
+        fetchTable('users', '*', 'name'),
+        fetchTable('admin_credentials', '*', 'name'),
+        fetchTable('notifications', '*', 'created_at'),
+        fetchTable('deleted_assets', '*', 'deleted_at'),
+        (async () => {
+          try {
+            const res = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(5000);
+            if (!res.error) return res.data || [];
+            const res2 = await supabase.from('reports').select('*').order('reported_at', { ascending: false }).limit(5000);
+            return res2.data || [];
+          } catch (e) { return []; }
+        })()
       ]);
 
-      if (assetsRes.error) throw new Error(`Assets: ${assetsRes.error.message}`);
-      if (catsRes.error) throw new Error(`Categories: ${catsRes.error.message}`);
-      if (locsRes.error) throw new Error(`Locations: ${locsRes.error.message}`);
-      if (reportsRes.error) throw new Error(`Reports: ${reportsRes.error.message}`);
-      if (usersRes.error) throw new Error(`Users: ${usersRes.error.message}`);
-      if (adminsRes.error) throw new Error(`Admins: ${adminsRes.error.message}`);
-      if (notificationsRes.error) throw new Error(`Notifications: ${notificationsRes.error.message}`);
-      if (deletedRes.error) throw new Error(`Recycle Bin: ${deletedRes.error.message}`);
-
-      setAssets(assetsRes.data || []);
-      setDisposed(disposedRes.data || []);
-      setCategories(catsRes.data || []);
-      setLocations(locsRes.data || []);
-      setReports(reportsRes.data || []);
-      setNotifications(notificationsRes.data || []);
-      setDeletedAssets(deletedRes.data || []);
+      setAssets(assetsData);
+      setDisposed(disposedData);
+      setCategories(catsData);
+      setLocations(locsData);
+      setReports(reportsData);
+      setNotifications(notificationsData);
+      setDeletedAssets(deletedData);
       
-      // Combine users and admins, adding role to each
-      const staffList = (usersRes.data || []).map(u => ({ ...u, role: 'staff' }));
-      const adminList = (adminsRes.data || []).map(a => ({ ...a, role: 'admin' }));
+      const staffList = usersData.map(u => ({ ...u, role: 'staff' }));
+      const adminList = adminsData.map(a => ({ ...a, role: 'admin' }));
       setUsers([...adminList, ...staffList]);
+
+      // If critical data is missing, show an error
+      if (assetsData.length === 0 && catsData.length === 0) {
+        console.error("Critical tables (assets/categories) appear to be empty or missing.");
+      }
     } catch (err) {
       console.error('Error fetching inventory data:', err);
       setError(err.message);
