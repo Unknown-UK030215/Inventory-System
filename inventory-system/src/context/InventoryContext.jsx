@@ -60,6 +60,8 @@ export function InventoryProvider({ children }) {
       if (reportsRes.error) throw new Error(`Reports: ${reportsRes.error.message}`);
       if (usersRes.error) throw new Error(`Users: ${usersRes.error.message}`);
       if (adminsRes.error) throw new Error(`Admins: ${adminsRes.error.message}`);
+      if (notificationsRes.error) throw new Error(`Notifications: ${notificationsRes.error.message}`);
+      if (deletedRes.error) throw new Error(`Recycle Bin: ${deletedRes.error.message}`);
 
       setAssets(assetsRes.data || []);
       setDisposed(disposedRes.data || []);
