@@ -873,6 +873,13 @@ export default function Assets() {
     reader.readAsArrayBuffer(file);
   };
 
+  const clearAllAndRefresh = () => {
+    setSearchTerm("");
+    setStartDate("");
+    setEndDate("");
+    refreshData();
+  };
+
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = !searchTerm || 
       asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -900,14 +907,21 @@ export default function Assets() {
       <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
-            <div className="flex-1">
+            <div className="flex-1 flex gap-2">
               <input
                 type="text"
                 placeholder="Search assets..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              <button 
+                onClick={clearAllAndRefresh}
+                className="bg-gray-100 p-2 rounded-lg hover:bg-gray-200 transition"
+                title="Force Refresh & Clear Filters"
+              >
+                🔄
+              </button>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

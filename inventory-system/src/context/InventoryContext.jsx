@@ -58,8 +58,8 @@ export function InventoryProvider({ children }) {
         deletedData,
         reportsData
       ] = await Promise.all([
-        fetchTable('assets', '*, categories(name), locations(name)', 'created_at'),
-        fetchTable('disposed', '*, categories(name), locations(name)', 'disposal_date'),
+        fetchTable('assets', '*', 'created_at'),
+        fetchTable('disposed', '*', 'disposal_date'),
         fetchTable('categories', '*', 'name'),
         fetchTable('locations', '*', 'name'),
         fetchTable('users', '*', 'name'),
@@ -76,7 +76,21 @@ export function InventoryProvider({ children }) {
         })()
       ]);
 
-      setAssets(assetsData);
+      console.log("=== DATA LOADED ===");
+      console.log("Assets:", assetsData.length);
+      
+      // Manual mapping is SAFER than complex joins for production
+      const finalAssets = assetsData.map(asset => {
+        const cat = catsData.find(c => c.id === asset.category_id);
+        const loc = locsData.find(l => l.id === asset.location_id);
+        return {
+          ...asset,
+          categories: cat ? { name: cat.name } : { name: "Uncategorized" },
+          locations: loc ? { name: loc.name } : { name: "Unknown" }
+        };
+      });
+
+      setAssets(finalAssets);
       setDisposed(disposedData);
       setCategories(catsData);
       setLocations(locsData);
