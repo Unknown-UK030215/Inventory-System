@@ -1,8 +1,9 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
 import AdminLayout from "./layouts/AdminLayout";
 import StaffLayout from "./layouts/StaffLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -37,24 +38,33 @@ export default function App() {
         {/* AUTH */}
         <Route path="/" element={<Login />} />
 
-        {/* ADMIN */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="assets" element={<Assets />} />
-          <Route path="users" element={<Users />} />
-          <Route path="reports" element={<AdminReports />} />
-          <Route path="disposed" element={<DisposedAssets />} />
-          <Route path="profile" element={<AdminProfile />} />
+        {/* ADMIN ROUTES - Protected */}
+        <Route element={<ProtectedRoute allowedRole="admin" />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="assets" element={<Assets />} />
+            <Route path="users" element={<Users />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="disposed" element={<DisposedAssets />} />
+            <Route path="profile" element={<AdminProfile />} />
+          </Route>
         </Route>
 
-        {/* STAFF */}
-        <Route path="/staff" element={<StaffLayout />}>
-          <Route path="dashboard" element={<StaffDashboard />} />
-          <Route path="my-assets" element={<MyAssets />} />
-          <Route path="scan" element={<QRScanner />} />
-          <Route path="reports" element={<MyReports />} />
-          <Route path="profile" element={<StaffProfile />} />
+        {/* STAFF ROUTES - Protected */}
+        <Route element={<ProtectedRoute allowedRole="staff" />}>
+          <Route path="/staff" element={<StaffLayout />}>
+            <Route index element={<Navigate to="/staff/dashboard" replace />} />
+            <Route path="dashboard" element={<StaffDashboard />} />
+            <Route path="my-assets" element={<MyAssets />} />
+            <Route path="scan" element={<QRScanner />} />
+            <Route path="reports" element={<MyReports />} />
+            <Route path="profile" element={<StaffProfile />} />
+          </Route>
         </Route>
+
+        {/* FALLBACK */}
+        <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
     </Suspense>

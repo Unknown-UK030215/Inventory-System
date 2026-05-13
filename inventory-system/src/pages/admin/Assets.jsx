@@ -6,7 +6,7 @@ import { useInventory } from "../../context/InventoryContext";
 import { usePageTitle } from "../../layouts/AdminLayout";
 
 export default function Assets() {
-  const { assets, categories, locations, loading, error, refreshData } = useInventory();
+  const { assets, categories, locations, deletedAssets, loading, error, refreshData } = useInventory();
   const { setPageTitle } = usePageTitle();
   
   useEffect(() => {
@@ -14,7 +14,9 @@ export default function Assets() {
   }, [setPageTitle]);
 
   const [selectedAsset, setSelectedAsset] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -29,6 +31,105 @@ export default function Assets() {
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
   const [useDateRangeExport, setUseDateRangeExport] = useState(false);
+  const [addMode, setAddMode] = useState("manual"); // "manual" or "smart"
+  const [smartSerial, setSmartSerial] = useState("");
+  const [isSmartLoading, setIsSmartLoading] = useState(false);
+
+  const handleSmartSearch = () => {
+    if (!smartSerial) return;
+    setIsSmartLoading(true);
+    
+    // Simulate lookup/logic
+    setTimeout(() => {
+      const { 
+        name: guessedName, 
+        categoryName: guessedCategoryName,
+        uacsCode: guessedUacsCode
+      } = guessAssetInfoFromSerial(smartSerial);
+
+      const category = categories.find(c => c.name === guessedCategoryName);
+      const defaultLocation = locations.length > 0 ? locations[0].id : null;
+
+      setAssetFormData({
+        name: guessedName,
+        category_id: category?.id || null,
+        location_id: defaultLocation,
+        status: "Active",
+        serial: smartSerial,
+        ref_id: "",
+        assigned_to_name: "None",
+        purchase_date: "",
+        uacs_code: guessedUacsCode || "10605020",
+        unit_cost: "",
+        qty: 1,
+        total_amount: "",
+        remarks: "",
+        warranty_expiry: "",
+        last_maintenance: "",
+        next_maintenance: "",
+        brand: "",
+        model_number: ""
+      });
+      
+      setAddMode("manual");
+      setIsSmartLoading(false);
+    }, 800);
+  };
+
+  const sendNotification = async (title, message, type = 'info') => {
+    try {
+      await supabase.from('notifications').insert({
+        title,
+        message,
+        type,
+        target_role: 'admin'
+      });
+    } catch (err) {
+      console.error("Notification failed:", err);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredAssets.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredAssets.map(a => a.id));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkStatusUpdate = async (newStatus) => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Update status to "${newStatus}" for ${selectedIds.length} assets?`)) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ status: newStatus })
+        .in('id', selectedIds);
+
+      if (error) throw error;
+      
+      await sendNotification(
+        'Bulk Status Update', 
+        `${selectedIds.length} assets updated to ${newStatus}.`, 
+        'success'
+      );
+
+      setSelectedIds([]);
+      refreshData();
+    } catch (err) {
+      alert("Error updating assets: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const [assetFormData, setAssetFormData] = useState({
     name: "",
     category_id: "",
@@ -42,7 +143,12 @@ export default function Assets() {
     unit_cost: "",
     qty: 1,
     total_amount: "",
-    remarks: ""
+    remarks: "",
+    warranty_expiry: "",
+    last_maintenance: "",
+    next_maintenance: "",
+    brand: "",
+    model_number: ""
   });
 
   const guessAssetInfoFromSerial = (serial) => {
@@ -178,6 +284,8 @@ export default function Assets() {
   };
 
   const handleOpenAssetModal = (asset = null) => {
+    setAddMode("manual");
+    setSmartSerial("");
     if (asset) {
       setEditingAsset(asset);
       setAssetFormData({
@@ -193,7 +301,12 @@ export default function Assets() {
         unit_cost: asset.unit_cost || null,
         qty: asset.qty || 1,
         total_amount: asset.total_amount || null,
-        remarks: asset.remarks || null
+        remarks: asset.remarks || null,
+        warranty_expiry: asset.warranty_expiry || null,
+        last_maintenance: asset.last_maintenance || null,
+        next_maintenance: asset.next_maintenance || null,
+        brand: asset.brand || "",
+        model_number: asset.model_number || ""
       });
     } else {
       setEditingAsset(null);
@@ -210,7 +323,12 @@ export default function Assets() {
         unit_cost: null,
         qty: 1,
         total_amount: null,
-        remarks: null
+        remarks: null,
+        warranty_expiry: null,
+        last_maintenance: null,
+        next_maintenance: null,
+        brand: "",
+        model_number: ""
       });
     }
     setShowAssetModal(true);
@@ -302,7 +420,12 @@ export default function Assets() {
           purchase_date: sanitizeField(finalAssetData.purchase_date),
           unit_cost: sanitizeField(finalAssetData.unit_cost),
           total_amount: sanitizeField(finalAssetData.total_amount),
-          remarks: sanitizeField(finalAssetData.remarks)
+          remarks: sanitizeField(finalAssetData.remarks),
+          warranty_expiry: sanitizeField(assetFormData.warranty_expiry),
+          last_maintenance: sanitizeField(assetFormData.last_maintenance),
+          next_maintenance: sanitizeField(assetFormData.next_maintenance),
+          brand: sanitizeField(assetFormData.brand),
+          model_number: sanitizeField(assetFormData.model_number)
         };
       }
 
@@ -315,15 +438,20 @@ export default function Assets() {
           .eq('id', editingAsset.id);
 
         if (updateError) throw updateError;
+        await sendNotification('Asset Updated', `Asset "${finalAssetData.name}" was modified.`, 'info');
       } else {
-        const { error: insertError } = await supabase
+        const { data: insertedData, error: insertError } = await supabase
           .from('assets')
-          .insert([finalAssetData]);
+          .insert([finalAssetData])
+          .select()
+          .single();
 
         if (insertError) throw insertError;
+        if (insertedData) await sendNotification('New Asset Created', `Asset "${finalAssetData.name}" added to inventory.`, 'success');
       }
       
       setShowAssetModal(false);
+      refreshData();
     } catch (err) {
       console.error("Error saving asset details:", err);
       alert("Error saving asset: " + err.message);
@@ -333,17 +461,86 @@ export default function Assets() {
   };
 
   const handleDeleteAsset = async (id) => {
-    if (window.confirm("Are you sure you want to delete this asset?")) {
+    const assetToDelete = assets.find(a => a.id === id);
+    if (!assetToDelete) return;
+
+    if (window.confirm(`Are you sure you want to delete "${assetToDelete.name}"? It will be moved to the Recycle Bin.`)) {
       try {
         if (!supabase) throw new Error("Database not connected.");
+        
+        const adminUser = JSON.parse(localStorage.getItem('admin_user') || '{}');
+
+        // 1. Move to deleted_assets
+        const { error: moveError } = await supabase
+          .from('deleted_assets')
+          .insert([{
+            original_id: assetToDelete.id,
+            name: assetToDelete.name,
+            serial: assetToDelete.serial,
+            category_id: assetToDelete.category_id,
+            location_id: assetToDelete.location_id,
+            asset_data: assetToDelete,
+            deleted_by: adminUser.name || 'Admin'
+          }]);
+
+        if (moveError) throw moveError;
+
+        // 2. Delete from assets
         const { error: deleteError } = await supabase
           .from('assets')
           .delete()
           .eq('id', id);
 
         if (deleteError) throw deleteError;
+        
+        await sendNotification('Asset Deleted', `Asset "${assetToDelete.name}" was moved to Recycle Bin.`, 'warning');
+        
+        refreshData();
       } catch (err) {
-        alert("Error deleting asset: " + err.message);
+        alert("Error moving to Recycle Bin: " + err.message);
+      }
+    }
+  };
+
+  const handleRestoreAsset = async (deletedAsset) => {
+    if (window.confirm(`Restore "${deletedAsset.name}" to inventory?`)) {
+      try {
+        // 1. Restore to assets
+        const { error: restoreError } = await supabase
+          .from('assets')
+          .insert([deletedAsset.asset_data]);
+
+        if (restoreError) throw restoreError;
+
+        // 2. Remove from deleted_assets
+        const { error: removeError } = await supabase
+          .from('deleted_assets')
+          .delete()
+          .eq('id', deletedAsset.id);
+
+        if (removeError) throw removeError;
+        
+        await sendNotification('Asset Restored', `Asset "${deletedAsset.name}" was restored to inventory.`, 'success');
+        
+        refreshData();
+      } catch (err) {
+        alert("Error restoring asset: " + err.message);
+      }
+    }
+  };
+
+  const handlePermanentDelete = async (id, name) => {
+    if (window.confirm(`PERMANENTLY DELETE "${name}"? This action CANNOT be undone.`)) {
+      try {
+        const { error } = await supabase
+          .from('deleted_assets')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        refreshData();
+      } catch (err) {
+        alert("Error deleting permanently: " + err.message);
       }
     }
   };
@@ -736,6 +933,18 @@ export default function Assets() {
             >
               + Add New Asset
             </button>
+            <button 
+              onClick={() => setShowRecycleBin(true)}
+              className="w-full sm:w-auto bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition shadow-sm font-semibold flex items-center justify-center gap-2"
+              title="Recycle Bin"
+            >
+              🗑️ Recycle Bin
+              {deletedAssets.length > 0 && (
+                <span className="bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                  {deletedAssets.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
         
@@ -781,12 +990,57 @@ export default function Assets() {
           </button>
         </div>
       )}
+
+      {selectedIds.length > 0 && (
+        <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-2">
+            <span className="bg-[#FF5F1F] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+              {selectedIds.length}
+            </span>
+            <p className="text-sm font-semibold text-gray-700">Assets Selected</p>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button 
+              onClick={() => handleBulkStatusUpdate('Active')}
+              className="px-3 py-1.5 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition text-sm font-bold"
+            >
+              Set Active
+            </button>
+            <button 
+              onClick={() => handleBulkStatusUpdate('Under Repair')}
+              className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200 transition text-sm font-bold"
+            >
+              Set Under Repair
+            </button>
+            <button 
+              onClick={() => handleBulkStatusUpdate('Disposed')}
+              className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition text-sm font-bold"
+            >
+              Set Disposed
+            </button>
+            <button 
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition text-sm font-bold"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="table-container">
           <table className="data-table w-full">
             <thead>
               <tr className="bg-gray-50 border-b">
+                <th className="px-3 py-3 text-center">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.length === filteredAssets.length && filteredAssets.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded text-[#FF5F1F] focus:ring-[#FF5F1F]"
+                  />
+                </th>
                 <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">No.</th>
                 <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date Acquired</th>
                 <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ICS Number</th>
@@ -815,7 +1069,15 @@ export default function Assets() {
               </tr>
             ) : (
               filteredAssets.map((asset, index) => (
-                <tr key={asset.id} className="hover:bg-blue-50 transition-colors">
+                <tr key={asset.id} className={`hover:bg-blue-50 transition-colors ${selectedIds.includes(asset.id) ? 'bg-orange-50' : ''}`}>
+                  <td className="px-3 py-3 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedIds.includes(asset.id)}
+                      onChange={() => toggleSelect(asset.id)}
+                      className="w-4 h-4 rounded text-[#FF5F1F] focus:ring-[#FF5F1F]"
+                    />
+                  </td>
                   <td className="px-3 py-3 text-center text-gray-500 font-medium">{index + 1}</td>
                   <td className="px-3 py-3 text-sm text-gray-600">
                     {asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : ''}
@@ -969,6 +1231,19 @@ export default function Assets() {
                   </span>
                 </div>
                 <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Brand/Model</h3>
+                  <p className="text-gray-700">{selectedAsset.brand || ''} {selectedAsset.model_number ? `(${selectedAsset.model_number})` : ''}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Warranty Expiry</h3>
+                  <p className="text-gray-700">{selectedAsset.warranty_expiry ? new Date(selectedAsset.warranty_expiry).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Maintenance</h3>
+                  <p className="text-xs text-gray-500">Last: {selectedAsset.last_maintenance ? new Date(selectedAsset.last_maintenance).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-xs text-gray-500">Next: {selectedAsset.next_maintenance ? new Date(selectedAsset.next_maintenance).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Remarks</h3>
                   <p className="text-gray-700">{selectedAsset.remarks || ''}</p>
                 </div>
@@ -1004,13 +1279,58 @@ export default function Assets() {
               <button onClick={() => setShowAssetModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
-            {error && (
-              <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded">
-                {error}
+            {!editingAsset && (
+              <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
+                <button 
+                  onClick={() => setAddMode("manual")}
+                  className={`flex-1 py-2 text-sm font-bold rounded-md transition ${addMode === 'manual' ? 'bg-white text-[#FF5F1F] shadow-sm' : 'text-gray-500'}`}
+                >
+                  📝 Manual Entry
+                </button>
+                <button 
+                  onClick={() => setAddMode("smart")}
+                  className={`flex-1 py-2 text-sm font-bold rounded-md transition ${addMode === 'smart' ? 'bg-white text-[#FF5F1F] shadow-sm' : 'text-gray-500'}`}
+                >
+                  🚀 Smart Serial Entry
+                </button>
               </div>
             )}
 
-            <form onSubmit={handleAssetSubmit} className="space-y-4">
+            {addMode === "smart" && !editingAsset ? (
+              <div className="space-y-6 py-4">
+                <div className="text-center">
+                  <span className="text-4xl mb-2 block">🔍</span>
+                  <h3 className="font-bold text-gray-800">Smart Asset Lookup</h3>
+                  <p className="text-sm text-gray-500">Enter a serial number and we'll fill the details for you.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">Serial / Property Number</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-[#FF5F1F] outline-none font-mono"
+                      placeholder="e.g. SN-9482 or ACER-LAP-001"
+                      value={smartSerial}
+                      onChange={(e) => setSmartSerial(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSmartSearch()}
+                    />
+                    <button 
+                      onClick={handleSmartSearch}
+                      disabled={isSmartLoading || !smartSerial}
+                      className="bg-[#FF5F1F] text-white px-6 rounded-lg font-bold hover:opacity-90 disabled:opacity-50 transition"
+                    >
+                      {isSmartLoading ? "..." : "Find"}
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    <b>How it works:</b> Our system recognizes patterns for common equipment like Laptops, Furniture, and Air Conditioners based on their serial prefixes.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAssetSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Description (Asset Name)</label>
                 <input
@@ -1162,6 +1482,59 @@ export default function Assets() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Brand</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.brand || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, brand: e.target.value})}
+                    placeholder="e.g. Acer, Dell"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Model Number</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.model_number || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, model_number: e.target.value})}
+                    placeholder="e.g. Nitro 5, XPS 13"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Warranty Expiry</label>
+                  <input
+                    type="date"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.warranty_expiry || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, warranty_expiry: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Last Maintenance</label>
+                  <input
+                    type="date"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.last_maintenance || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, last_maintenance: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-gray-700">Next Maintenance</label>
+                  <input
+                    type="date"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] outline-none"
+                    value={assetFormData.next_maintenance || ""}
+                    onChange={(e) => setAssetFormData({...assetFormData, next_maintenance: e.target.value})}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Remarks</label>
                 <textarea
@@ -1190,6 +1563,7 @@ export default function Assets() {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}
@@ -1332,6 +1706,90 @@ export default function Assets() {
                   Export Now
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECYCLE BIN MODAL */}
+      {showRecycleBin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                  <span>🗑️</span> Recycle Bin
+                </h2>
+                <p className="text-sm text-gray-500">Restore items you accidentally deleted</p>
+              </div>
+              <button 
+                onClick={() => setShowRecycleBin(false)}
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              {deletedAssets.length === 0 ? (
+                <div className="text-center py-20">
+                  <span className="text-6xl mb-4 block">♻️</span>
+                  <p className="text-gray-500 text-lg">Your Recycle Bin is empty.</p>
+                </div>
+              ) : (
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-3">Asset Name</th>
+                        <th className="px-4 py-3">Serial Number</th>
+                        <th className="px-4 py-3">Deleted By</th>
+                        <th className="px-4 py-3">Deleted At</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deletedAssets.map((asset) => (
+                        <tr key={asset.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{asset.name}</td>
+                          <td className="px-4 py-3 font-mono text-xs">{asset.serial}</td>
+                          <td className="px-4 py-3 text-sm">{asset.deleted_by}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500">
+                            {new Date(asset.deleted_at).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => handleRestoreAsset(asset)}
+                                className="px-3 py-1 bg-green-100 text-green-700 rounded text-xs font-bold hover:bg-green-200"
+                                title="Restore"
+                              >
+                                ⏪ Restore
+                              </button>
+                              <button 
+                                onClick={() => handlePermanentDelete(asset.id, asset.name)}
+                                className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-bold hover:bg-red-200"
+                                title="Delete Permanently"
+                              >
+                                ❌ Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setShowRecycleBin(false)}
+                className="px-6 py-2 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-800"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

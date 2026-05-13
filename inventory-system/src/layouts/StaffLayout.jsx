@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import psuLibraryLogo from "../assets/Psu_Library.png";
@@ -7,82 +7,13 @@ export default function StaffLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const getStaffUser = () => {
-    try {
-      return JSON.parse(localStorage.getItem('staff_user') || '{}');
-    } catch {
-      return {};
-    }
-  };
-
   const logout = async () => {
-    const staffUser = getStaffUser();
-    if (staffUser.id) {
-      await supabase
-        .from('users')
-        .update({ 
-          is_online: false, 
-          last_active: new Date().toISOString() 
-        })
-        .eq('id', staffUser.id);
-    }
-    
     await supabase.auth.signOut();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("staff_user");
     localStorage.removeItem("supabase_session");
     navigate("/");
   };
-
-  // Update last active every 30 seconds while logged in
-  useEffect(() => {
-    const staffUser = getStaffUser();
-    if (!staffUser.id) return;
-
-    const updateLastActive = async () => {
-      try {
-        await supabase
-          .from('users')
-          .update({ 
-            is_online: true,
-            last_active: new Date().toISOString() 
-          })
-          .eq('id', staffUser.id);
-      } catch (err) {
-        console.error('Failed to update last active:', err);
-      }
-    };
-
-    const markOffline = async () => {
-      try {
-        await supabase
-          .from('users')
-          .update({ 
-            is_online: false,
-            last_active: new Date().toISOString() 
-          })
-          .eq('id', staffUser.id);
-      } catch (err) {
-        console.error('Failed to mark as offline:', err);
-      }
-    };
-
-    // Run immediately and then every 30 seconds
-    updateLastActive();
-    const interval = setInterval(updateLastActive, 30000);
-    
-    // Mark as offline when page is closed
-    window.addEventListener('beforeunload', markOffline);
-    window.addEventListener('unload', markOffline);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('beforeunload', markOffline);
-      window.removeEventListener('unload', markOffline);
-      markOffline();
-    };
-  }, []);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -94,7 +25,7 @@ export default function StaffLayout() {
       <aside className="hidden lg:flex sidebar staff-sidebar w-64 flex-col">
         <div className="flex items-center gap-3 mb-8 px-2">
           <img src={psuLibraryLogo} alt="PSU Library Logo" className="sidebar-logo-small" />
-          <h1 className="text-lg font-bold text-gray-800">Staff Panel</h1>
+          {/* <h1 className="text-lg font-bold text-gray-800">Staff Panel</h1> */}
         </div>
 
         <nav className="flex flex-col gap-3">
@@ -116,11 +47,11 @@ export default function StaffLayout() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-8 relative">
-              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl text-white">&times;</button>
+              <button onClick={closeMobileMenu} className="absolute -right-2 -top-2 text-2xl text-gray-600">&times;</button>
               <div className="sidebar-profile-circle border-gray-200">
                 <img src={`https://ui-avatars.com/api/?name=Staff&background=FF5F1F&color=fff`} alt="Staff Profile" className="profile-img" />
               </div>
-              <h1 className="text-lg font-bold text-white">Staff Panel</h1>
+              <h1 className="text-lg font-bold text-gray-800">Staff Panel</h1>
             </div>
             <nav className="flex flex-col gap-4">
               <NavLink to="/staff/dashboard" className="nav-link" onClick={closeMobileMenu}>Dashboard</NavLink>
@@ -162,7 +93,7 @@ export default function StaffLayout() {
 
         {/* PAGE CONTENT */}
         <main className="flex-1 overflow-auto p-4 lg:p-8 bg-white">
-          <div className="max-w-7xl mx-auto relative z-10">
+          <div className="max-w-full mx-auto relative z-10">
             <Outlet />
           </div>
         </main>

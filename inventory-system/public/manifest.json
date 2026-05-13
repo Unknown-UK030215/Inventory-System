@@ -5,20 +5,20 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#800000",
-  "orientation": "portrait",
+  "theme_color": "#FF5F1F",
+  "orientation": "any",
   "icons": [
     {
-      "src": "/psu-logo.png",
+      "src": "/pwa-icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/psu-logo.png",
+      "src": "/pwa-icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }

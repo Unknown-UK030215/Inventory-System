@@ -7,7 +7,7 @@
 DO $$ 
 DECLARE
     r RECORD;
-    target_tables TEXT[] := ARRAY['assets', 'reports', 'disposed', 'categories', 'locations', 'users', 'admin_credentials'];
+    target_tables TEXT[] := ARRAY['assets', 'reports', 'disposed', 'categories', 'locations', 'users', 'admin_credentials', 'notifications', 'deleted_assets'];
 BEGIN
     FOR r IN 
         SELECT conname, conrelid::regclass AS table_name
@@ -82,7 +82,13 @@ ADD COLUMN IF NOT EXISTS uacs_code TEXT,
 ADD COLUMN IF NOT EXISTS unit_cost NUMERIC,
 ADD COLUMN IF NOT EXISTS qty INTEGER DEFAULT 1,
 ADD COLUMN IF NOT EXISTS total_amount NUMERIC,
-ADD COLUMN IF NOT EXISTS remarks TEXT;
+ADD COLUMN IF NOT EXISTS remarks TEXT,
+ADD COLUMN IF NOT EXISTS warranty_expiry DATE,
+ADD COLUMN IF NOT EXISTS last_maintenance DATE,
+ADD COLUMN IF NOT EXISTS next_maintenance DATE,
+ADD COLUMN IF NOT EXISTS image_url TEXT,
+ADD COLUMN IF NOT EXISTS model_number TEXT,
+ADD COLUMN IF NOT EXISTS brand TEXT;
 
 
 -- =========================================
@@ -222,14 +228,50 @@ CREATE TABLE IF NOT EXISTS disposed (
 
 
 -- =========================================
+-- 9. NOTIFICATIONS SYSTEM
+-- =========================================
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT DEFAULT 'info', -- 'info', 'warning', 'error', 'success'
+  target_role TEXT DEFAULT 'admin', -- 'admin', 'staff', or 'all'
+  target_user_id UUID, -- Optional specific user
+  is_read BOOLEAN DEFAULT false,
+  link TEXT, -- Optional URL to navigate to
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+-- =========================================
+-- 10. RECYCLE BIN (DELETED ASSETS)
+-- =========================================
+CREATE TABLE IF NOT EXISTS deleted_assets (
+  id BIGSERIAL PRIMARY KEY,
+  original_id BIGINT,
+  name TEXT NOT NULL,
+  serial TEXT NOT NULL,
+  category_id BIGINT,
+  location_id BIGINT,
+  asset_data JSONB, -- Stores the full original asset record
+  deleted_by TEXT,
+  deleted_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+-- =========================================
 -- SAFETY FIXES (ENSURE DEFAULTS EXIST)
 -- =========================================
 ALTER TABLE users
 ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+
 
 ALTER TABLE admin_credentials
 ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE admin_credentials ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
 
 
 
@@ -243,6 +285,8 @@ ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE disposed ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deleted_assets ENABLE ROW LEVEL SECURITY;
 
 
 -- DROP OLD POLICIES
@@ -253,6 +297,8 @@ DROP POLICY IF EXISTS "Allow all on reports" ON reports;
 DROP POLICY IF EXISTS "Allow all on users" ON users;
 DROP POLICY IF EXISTS "Allow all on admin_credentials" ON admin_credentials;
 DROP POLICY IF EXISTS "Allow all on disposed" ON disposed;
+DROP POLICY IF EXISTS "Allow all on notifications" ON notifications;
+DROP POLICY IF EXISTS "Allow all on deleted_assets" ON deleted_assets;
 
 
 -- CREATE OPEN POLICIES (DEV MODE)
@@ -263,6 +309,8 @@ CREATE POLICY "Allow all on reports" ON reports FOR ALL USING (true);
 CREATE POLICY "Allow all on users" ON users FOR ALL USING (true);
 CREATE POLICY "Allow all on admin_credentials" ON admin_credentials FOR ALL USING (true);
 CREATE POLICY "Allow all on disposed" ON disposed FOR ALL USING (true);
+CREATE POLICY "Allow all on notifications" ON notifications FOR ALL USING (true);
+CREATE POLICY "Allow all on deleted_assets" ON deleted_assets FOR ALL USING (true);
 
 
 
@@ -283,6 +331,11 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO admin_credentials (username, name, email)
 VALUES ('admin', 'System Administrator', 'admin@example.com')
 ON CONFLICT (username) DO NOTHING;
+
+
+INSERT INTO notifications (title, message, type, target_role)
+VALUES ('System Update', 'New features implemented: Warranty Tracking and Notifications Center.', 'success', 'admin')
+ON CONFLICT DO NOTHING;
 
 
 

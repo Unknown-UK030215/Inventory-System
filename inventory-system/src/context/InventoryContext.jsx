@@ -10,6 +10,8 @@ export function InventoryProvider({ children }) {
   const [locations, setLocations] = useState([]);
   const [reports, setReports] = useState([]);
   const [users, setUsers] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [deletedAssets, setDeletedAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -35,56 +37,37 @@ export function InventoryProvider({ children }) {
       
       let reportsRes;
       try {
-        reportsRes = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(0);
+        reportsRes = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(5000);
         if (reportsRes.error) throw reportsRes.error;
       } catch (err) {
-        reportsRes = await supabase.from('reports').select('*').order('reported_at', { ascending: false }).limit(0);
+        reportsRes = await supabase.from('reports').select('*').order('reported_at', { ascending: false }).limit(5000);
       }
 
-      const [assetsRes, disposedRes, catsRes, locsRes, usersRes, adminsRes] = await Promise.all([
-        supabase.from('assets').select('*, categories(name), locations(name)').limit(0),
-        supabase.from('disposed').select('*, categories(name), locations(name)').limit(0),
-        supabase.from('categories').select('*').order('name').limit(0),
-        supabase.from('locations').select('*').order('name').limit(0),
-        supabase.from('users').select('*').order('name').limit(0),
-        supabase.from('admin_credentials').select('*').order('name').limit(0)
+      const [assetsRes, disposedRes, catsRes, locsRes, usersRes, adminsRes, notificationsRes, deletedRes] = await Promise.all([
+        supabase.from('assets').select('*, categories(name), locations(name)').order('created_at', { ascending: false }).limit(5000),
+        supabase.from('disposed').select('*, categories(name), locations(name)').order('disposal_date', { ascending: false }).limit(5000),
+        supabase.from('categories').select('*').order('name').limit(5000),
+        supabase.from('locations').select('*').order('name').limit(5000),
+        supabase.from('users').select('*').order('name').limit(5000),
+        supabase.from('admin_credentials').select('*').order('name').limit(5000),
+        supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(500),
+        supabase.from('deleted_assets').select('*').order('deleted_at', { ascending: false }).limit(500)
       ]);
 
-      if (assetsRes.error) {
-        console.error('Assets fetch error:', assetsRes.error);
-        throw new Error(`Assets: ${assetsRes.error.message}`);
-      }
-      if (catsRes.error) {
-        console.error('Categories fetch error:', catsRes.error);
-        throw new Error(`Categories: ${catsRes.error.message}`);
-      }
-      if (locsRes.error) {
-        console.error('Locations fetch error:', locsRes.error);
-        throw new Error(`Locations: ${locsRes.error.message}`);
-      }
-      if (reportsRes.error) {
-        console.error('Reports fetch error:', reportsRes.error);
-        throw new Error(`Reports: ${reportsRes.error.message}`);
-      }
-      if (usersRes.error) {
-        console.error('Users fetch error:', usersRes.error);
-        throw new Error(`Users: ${usersRes.error.message}`);
-      }
-      if (adminsRes.error) {
-        console.error('Admins fetch error:', adminsRes.error);
-        throw new Error(`Admins: ${adminsRes.error.message}`);
-      }
+      if (assetsRes.error) throw new Error(`Assets: ${assetsRes.error.message}`);
+      if (catsRes.error) throw new Error(`Categories: ${catsRes.error.message}`);
+      if (locsRes.error) throw new Error(`Locations: ${locsRes.error.message}`);
+      if (reportsRes.error) throw new Error(`Reports: ${reportsRes.error.message}`);
+      if (usersRes.error) throw new Error(`Users: ${usersRes.error.message}`);
+      if (adminsRes.error) throw new Error(`Admins: ${adminsRes.error.message}`);
 
-      console.log("=== DATA FETCH RESULTS ===");
-      console.log("Assets fetched count:", assetsRes.data?.length || 0);
-      console.log("Reports fetched count:", reportsRes.data?.length || 0);
-      console.log("Disposed fetched count:", disposedRes.data?.length || 0);
-      
       setAssets(assetsRes.data || []);
       setDisposed(disposedRes.data || []);
       setCategories(catsRes.data || []);
       setLocations(locsRes.data || []);
       setReports(reportsRes.data || []);
+      setNotifications(notificationsRes.data || []);
+      setDeletedAssets(deletedRes.data || []);
       
       // Combine users and admins, adding role to each
       const staffList = (usersRes.data || []).map(u => ({ ...u, role: 'staff' }));
@@ -145,6 +128,22 @@ export function InventoryProvider({ children }) {
           setDisposed(prev => prev.filter(item => item.id !== payload.old.id));
         }
       })
+      // Real-time for notifications
+      .on('postgres_changes', { event: '*', table: 'notifications' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setNotifications(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n));
+        }
+      })
+      // Real-time for deleted_assets
+      .on('postgres_changes', { event: '*', table: 'deleted_assets' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setDeletedAssets(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'DELETE') {
+          setDeletedAssets(prev => prev.filter(item => item.id !== payload.old.id));
+        }
+      })
       // Real-time for categories, locations, users (fallback to full fetch)
       .on('postgres_changes', { event: '*', table: 'categories' }, () => fetchData())
       .on('postgres_changes', { event: '*', table: 'locations' }, () => fetchData())
@@ -158,12 +157,15 @@ export function InventoryProvider({ children }) {
   }, []);
 
   const value = {
+    supabase,
     assets,
     disposed,
     categories,
     locations,
     reports,
     users,
+    notifications,
+    deletedAssets,
     loading,
     error,
     refreshData: fetchData

@@ -15,8 +15,10 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { assets, loading, reports, disposed } = useInventory();
+  const { supabase, assets, loading, reports, disposed, notifications, refreshData } = useInventory();
   const { setPageTitle } = usePageTitle();
+  
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
 
   useEffect(() => {
     setPageTitle("Admin Dashboard");
@@ -26,7 +28,8 @@ export default function Dashboard() {
     { label: "Total Assets", value: "0", color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
     { label: "Active", value: "0", color: "text-green-600", bg: "bg-green-50", icon: "✅" },
     { label: "Issues/Repair", value: "0", color: "text-yellow-600", bg: "bg-yellow-50", icon: "🛠️" },
-    { label: "Disposed", value: "0", color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
+    { label: "Expiring Warranty", value: "0", color: "text-red-600", bg: "bg-red-50", icon: "⚠️" },
+    { label: "Disposed", value: "0", color: "text-gray-600", bg: "bg-gray-50", icon: "🗑️" },
   ]);
   const [healthData, setHealthData] = useState([
     { status: 'Active', count: 0, color: '#10B981' },
@@ -67,24 +70,21 @@ export default function Dashboard() {
       // Disposed assets are in the disposed table
       const disposedCount = disposed.length;
       
-      console.log("FINAL COUNTS:");
-      console.log("- Total Assets (in assets table):", total);
-      console.log("- Active:", active);
-      console.log("- Issues/Repair:", repair);
-      console.log("- Disposed (in disposed table):", disposedCount);
-      
-      // Verify active count decreases when assets move to repair/disposed:
-      const expectedActive = total - repair;
-      console.log("Expected active (total - repair):", expectedActive);
-      if (active !== expectedActive) {
-        console.warn("⚠️  Active count doesn't match expected!");
-      }
+      // Analytics: Expiring Warranty (next 30 days)
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const expiringWarranty = assets.filter(a => {
+        if (!a.warranty_expiry) return false;
+        const expiry = new Date(a.warranty_expiry);
+        return expiry > new Date() && expiry <= thirtyDaysFromNow;
+      }).length;
 
       setStats([
         { label: "Total Assets", value: total.toString(), color: "text-blue-600", bg: "bg-blue-50", icon: "📦" },
         { label: "Active", value: active.toString(), color: "text-green-600", bg: "bg-green-50", icon: "✅" },
         { label: "Issues/Repair", value: repair.toString(), color: "text-yellow-600", bg: "bg-yellow-50", icon: "🛠️" },
-        { label: "Disposed", value: disposedCount.toString(), color: "text-red-600", bg: "bg-red-50", icon: "🗑️" },
+        { label: "Expiring Warranty", value: expiringWarranty.toString(), color: "text-red-600", bg: "bg-red-50", icon: "⚠️" },
+        { label: "Disposed", value: disposedCount.toString(), color: "text-gray-600", bg: "bg-gray-50", icon: "🗑️" },
       ]);
 
       setHealthData([
@@ -104,20 +104,63 @@ export default function Dashboard() {
 
   return (
     <div className="page-container">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <p className="text-gray-500 text-lg">Welcome back, Administrator</p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">Last updated: {new Date().toLocaleTimeString()}</span>
+          <button 
+            onClick={() => refreshData()}
+            className="p-1.5 hover:bg-gray-100 rounded-full transition"
+            title="Refresh Data"
+          >
+            🔄
+          </button>
+        </div>
       </div>
+
+      {/* URGENT NOTIFICATIONS */}
+      {notifications.filter(n => !n.is_read).length > 0 && (
+        <div className="mb-8 space-y-3">
+          {notifications.filter(n => !n.is_read).slice(0, 2).map(n => (
+            <div key={n.id} className={`p-4 rounded-lg border-l-4 shadow-sm flex items-center justify-between ${
+              n.type === 'success' ? 'bg-green-50 border-green-500 text-green-800' :
+              n.type === 'warning' ? 'bg-orange-50 border-orange-500 text-orange-800' :
+              n.type === 'error' ? 'bg-red-50 border-red-500 text-red-800' :
+              'bg-blue-50 border-blue-500 text-blue-800'
+            }`}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">
+                  {n.type === 'success' ? '✅' : n.type === 'warning' ? '⚠️' : n.type === 'error' ? '🚫' : 'ℹ️'}
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm">{n.title}</h3>
+                  <p className="text-xs opacity-80">{n.message}</p>
+                </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
+                  refreshData();
+                }}
+                className="text-xs font-bold hover:underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-8">
         {stats.map((stat, i) => (
-          <div key={i} className="card hover:shadow-md transition-shadow group">
+          <div key={i} className="card hover:shadow-md transition-shadow group p-4 lg:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 uppercase font-bold tracking-wider group-hover:text-orange-600">{stat.label}</p>
-                <p className="text-3xl font-bold mt-1 group-hover:text-orange-600">{stat.value}</p>
+              <div className="min-w-0">
+                <p className="text-xs lg:text-sm text-gray-500 uppercase font-bold tracking-wider group-hover:text-orange-600 truncate">{stat.label}</p>
+                <p className="text-2xl lg:text-3xl font-bold mt-1 group-hover:text-orange-600">{stat.value}</p>
               </div>
-              <div className="p-3 rounded-full text-2xl bg-orange-50 text-orange-600 group-hover:bg-orange-100">
+              <div className="p-2 lg:p-3 rounded-full text-xl lg:text-2xl bg-orange-50 text-orange-600 group-hover:bg-orange-100 flex-shrink-0">
                 {stat.icon}
               </div>
             </div>
@@ -158,48 +201,84 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Maintenance Alerts */}
+        <div className="lg:col-span-1">
+          <div className="card h-full p-4 lg:p-6 bg-red-50 border border-red-100">
+            <h2 className="text-lg font-bold mb-4 text-red-800 flex items-center gap-2">
+              <span>🔧</span> Maintenance Alerts
+            </h2>
+            <div className="space-y-3">
+              {assets.filter(a => a.next_maintenance && new Date(a.next_maintenance) <= new Date()).length === 0 ? (
+                <div className="text-center py-6">
+                  <span className="text-3xl mb-2 block">✅</span>
+                  <p className="text-sm text-green-700 font-medium">All equipment up to date</p>
+                </div>
+              ) : (
+                assets.filter(a => a.next_maintenance && new Date(a.next_maintenance) <= new Date()).slice(0, 3).map((a, i) => (
+                  <div key={i} className="p-3 bg-white rounded-lg border border-red-200 shadow-sm">
+                    <p className="text-sm font-bold text-gray-800 truncate">{a.name}</p>
+                    <p className="text-xs text-red-600 font-semibold mt-1">Maintenance Due: {new Date(a.next_maintenance).toLocaleDateString()}</p>
+                    <button 
+                      onClick={() => navigate('/admin/assets')}
+                      className="mt-2 text-xs text-blue-600 font-bold hover:underline"
+                    >
+                      Update Status →
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="lg:col-span-1">
-          <div className="card h-full">
+          <div className="card h-full p-4 lg:p-6">
             <h2 className="text-lg font-bold mb-4 text-gray-700">Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 lg:gap-4">
               {shortcuts.map((shortcut, i) => (
                 <button
                   key={i}
                   onClick={() => navigate(shortcut.path)}
-                  className="flex flex-col items-center justify-center p-4 rounded-lg border transition border-gray-100 hover:bg-orange-50 hover:border-orange-200"
+                  className="flex flex-col items-center justify-center p-3 lg:p-4 rounded-lg border transition border-gray-100 hover:bg-orange-50 hover:border-orange-200"
                 >
-                  <span className="text-2xl mb-2">{shortcut.icon}</span>
-                  <span className="text-sm font-medium text-gray-600">{shortcut.title}</span>
+                  <span className="text-xl lg:text-2xl mb-1 lg:mb-2">{shortcut.icon}</span>
+                  <span className="text-xs lg:text-sm font-medium text-gray-600 text-center">{shortcut.title}</span>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="lg:col-span-2">
+        {/* Recent Notifications */}
+        <div className="lg:col-span-1">
           <div className="card h-full">
-            <h2 className="text-lg font-bold mb-4 text-gray-700">Recent Activity</h2>
+            <h2 className="text-lg font-bold mb-4 text-gray-700">Notification History</h2>
             <div className="space-y-4">
-              {reports.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">No recent activity found.</p>
+              {notifications.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No recent notifications found.</p>
               ) : (
-                reports.slice(0, 5).map((report, i) => (
+                notifications.slice(0, 5).map((n, i) => (
                   <div key={i} className="flex items-start gap-3 border-b border-gray-50 pb-3 last:border-0">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                    <div className={`w-2 h-2 rounded-full mt-2 ${
+                      n.type === 'success' ? 'bg-green-500' : 
+                      n.type === 'warning' ? 'bg-orange-500' : 
+                      n.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                    }`}></div>
                     <div>
-                      <p className="text-sm text-gray-800">
-                        <span className="font-bold">{report.reported_by}</span> reported <span className="font-semibold">{report.type}</span> on {report.name || "Unknown Asset"}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(report.created_at || report.reported_at).toLocaleString()}</p>
+                      <p className="text-sm font-bold text-gray-800">{n.title}</p>
+                      <p className="text-xs text-gray-600 line-clamp-1">{n.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
                     </div>
                   </div>
                 ))
               )}
             </div>
-            <button className="w-full mt-6 text-blue-600 text-sm font-semibold hover:underline">
-              View All Activity
+            <button 
+              onClick={() => refreshData()}
+              className="w-full mt-6 text-blue-600 text-sm font-semibold hover:underline"
+            >
+              Refresh Feed
             </button>
           </div>
         </div>

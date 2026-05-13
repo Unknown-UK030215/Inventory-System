@@ -113,6 +113,17 @@ export default function AdminReports() {
           .eq('serial', assetSerial);
         
         if (assetError) console.error("Asset status update error:", assetError);
+
+        // LOG HISTORY
+        if (asset) {
+          await supabase.from('asset_history').insert({
+            asset_id: asset.id,
+            action: 'STATUS_CHANGE',
+            changes: { status: { from: asset.status, to: 'Active' }, report_id: reportId },
+            performed_by: 'Admin',
+            performed_by_role: 'admin'
+          });
+        }
       } else if (newReportStatus === "Under Repair" && assetSerial) {
         // Mark asset as Under Repair
         const { error: assetError } = await supabase
@@ -121,6 +132,17 @@ export default function AdminReports() {
           .eq('serial', assetSerial);
         
         if (assetError) console.error("Asset status update error:", assetError);
+
+        // LOG HISTORY
+        if (asset) {
+          await supabase.from('asset_history').insert({
+            asset_id: asset.id,
+            action: 'STATUS_CHANGE',
+            changes: { status: { from: asset.status, to: 'Under Repair' }, report_id: reportId },
+            performed_by: 'Admin',
+            performed_by_role: 'admin'
+          });
+        }
       } else if (newReportStatus === "Disposed" && assetSerial && asset) {
         // Move asset to disposed table
         const { error: disposeError } = await supabase
@@ -137,6 +159,15 @@ export default function AdminReports() {
           }]);
         
         if (disposeError) throw disposeError;
+
+        // LOG HISTORY before deletion
+        await supabase.from('asset_history').insert({
+          asset_id: asset.id,
+          action: 'DISPOSED',
+          changes: { status: { from: asset.status, to: 'Disposed' }, report_id: reportId },
+          performed_by: 'Admin',
+          performed_by_role: 'admin'
+        });
         
         // Delete from assets table
         const { error: deleteError } = await supabase
@@ -256,11 +287,11 @@ export default function AdminReports() {
                   <td className="text-sm">{report.reported_by}</td>
                   <td className="text-sm text-gray-500">{new Date(report.created_at || report.reported_at).toLocaleString()}</td>
                   <td>
-                    <span className={`badge ${
-                      report.status === 'Pending' ? 'badge-pending' :
-                      report.status === 'Under Repair' ? 'bg-yellow-100 text-yellow-700' :
-                      report.status === 'Disposed' ? 'bg-red-100 text-red-700' :
-                      report.status === 'Resolved' ? 'badge-active' : 'badge-pending'
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                      report.status === 'Resolved' ? 'bg-green-100 text-green-700' : 
+                      report.status === 'Under Repair' ? 'bg-yellow-100 text-yellow-700' : 
+                      report.status === 'Disposed' ? 'bg-red-100 text-red-700' : 
+                      'bg-orange-100 text-orange-700'
                     }`}>
                       {report.status}
                     </span>

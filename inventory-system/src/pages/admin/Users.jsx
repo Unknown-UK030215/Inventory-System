@@ -129,24 +129,49 @@ export default function Users() {
           }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          // If user already exists in Auth, try to just insert into DB
+          if (authError.message.includes('already registered')) {
+            const { error: insertError } = await supabase
+              .from(targetTable)
+              .insert([{
+                name: formData.name,
+                username: formData.username,
+                email: formData.email,
+                password: formData.password,
+                is_online: false
+              }]);
+            if (insertError) throw insertError;
+          } else {
+            throw authError;
+          }
+        } else if (authData.user) {
+          // 2. Create the user in the target table
+          const { error: insertError } = await supabase
+            .from(targetTable)
+            .insert([{
+              id: authData.user.id,
+              name: formData.name,
+              username: formData.username,
+              email: formData.email,
+              password: formData.password,
+              is_online: false
+            }]);
 
-        // 2. Create the user in the target table
-        const { error: insertError } = await supabase
-          .from(targetTable)
-          .insert([{
-            id: authData.user.id,
-            name: formData.name,
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-            is_online: false
-          }]);
-
-        if (insertError) throw insertError;
+          if (insertError) throw insertError;
+        }
       }
+
+      // Add a notification for the system update
+      await supabase.from('notifications').insert({
+        title: editingUser ? 'User Updated' : 'New User Created',
+        message: `${formData.role.toUpperCase()} account for ${formData.name} has been ${editingUser ? 'updated' : 'created'}.`,
+        type: 'success',
+        target_role: 'admin'
+      });
       
       handleCloseModal();
+      refreshData();
     } catch (err) {
       alert("Error saving user: " + err.message);
     } finally {

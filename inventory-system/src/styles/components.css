@@ -32,35 +32,49 @@
   width: 100%;
   text-align: left;
   border-collapse: collapse;
-  min-width: 1000px;
+  min-width: 800px; /* Reduced from 1000px for better fit */
 }
 
 .data-table thead {
   background-color: #f9fafb;
   border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .data-table th {
-  padding: 0.5rem 0.5rem;
+  padding: 0.75rem 0.5rem;
   font-weight: 600;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   white-space: nowrap;
   letter-spacing: 0.03em;
 }
 
 .data-table td {
-  padding: 0.5rem 0.5rem;
+  padding: 0.75rem 0.5rem;
   border-bottom: 1px solid var(--border-color);
   font-size: 0.875rem;
 }
 
 .text-truncate {
-  max-width: 150px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .text-truncate {
+    max-width: 120px;
+  }
+  
+  .data-table th, .data-table td {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+  }
 }
 
 .data-table tr:hover {
@@ -71,6 +85,10 @@
 .table-container {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: white;
+  width: 100%;
 }
 
 .badge {
