@@ -979,15 +979,33 @@ export default function Assets() {
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
-          <p className="font-bold">Error loading data:</p>
-          <p className="text-sm">{error}</p>
-          <button 
-            onClick={() => refreshData()} 
-            className="mt-2 text-xs bg-red-700 text-white px-2 py-1 rounded hover:bg-red-800"
-          >
-            Retry
-          </button>
+        <div className="mb-6 p-6 bg-red-50 border-2 border-red-200 rounded-xl animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-4 text-red-700 mb-3">
+            <span className="text-3xl">🚫</span>
+            <div>
+              <h3 className="font-bold text-lg">System Connection Error</h3>
+              <p className="text-sm opacity-90">We couldn't fetch your data from the database.</p>
+            </div>
+          </div>
+          <div className="bg-white p-3 rounded-lg border border-red-100 mb-4">
+            <code className="text-xs text-red-600 break-all">{error}</code>
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => refreshData()} 
+              className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700 transition shadow-sm"
+            >
+              🔄 Retry Connection
+            </button>
+            <a 
+              href="https://vercel.com/dashboard" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-gray-800 text-white px-6 py-2 rounded-lg font-bold hover:bg-black transition shadow-sm flex items-center gap-2"
+            >
+              ⚙️ Fix in Vercel Settings
+            </a>
+          </div>
         </div>
       )}
 

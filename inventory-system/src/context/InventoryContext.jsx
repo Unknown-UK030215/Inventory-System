@@ -17,6 +17,7 @@ export function InventoryProvider({ children }) {
 
   const fetchData = async () => {
     if (!supabase) {
+      setError("Supabase is not configured. Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.");
       setLoading(false);
       return;
     }
