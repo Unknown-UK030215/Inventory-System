@@ -37,14 +37,24 @@ export function InventoryProvider({ children }) {
       console.log("Total reports in DB:", reportsCountRes.count);
       
       const fetchTable = async (table, query, orderCol = null) => {
-        let q = supabase.from(table).select(query);
-        if (orderCol) q = q.order(orderCol, { ascending: false });
-        const res = await q.limit(5000);
-        if (res.error) {
-          console.warn(`⚠️ Warning fetching ${table}:`, res.error.message);
+        try {
+          let q = supabase.from(table).select(query);
+          // Only order if requested, but don't fail if column is missing
+          if (orderCol) {
+            const res = await q.order(orderCol, { ascending: false }).limit(5000);
+            if (!res.error) return res.data || [];
+          }
+          
+          // Fallback: simple fetch without ordering
+          const resFallback = await supabase.from(table).select(query).limit(5000);
+          if (resFallback.error) {
+            console.warn(`⚠️ Error fetching ${table}:`, resFallback.error.message);
+            return [];
+          }
+          return resFallback.data || [];
+        } catch (e) {
           return [];
         }
-        return res.data || [];
       };
 
       const [
@@ -58,20 +68,18 @@ export function InventoryProvider({ children }) {
         deletedData,
         reportsData
       ] = await Promise.all([
-        fetchTable('assets', '*', 'created_at'),
-        fetchTable('disposed', '*', 'disposal_date'),
-        fetchTable('categories', '*', 'name'),
-        fetchTable('locations', '*', 'name'),
-        fetchTable('users', '*', 'name'),
-        fetchTable('admin_credentials', '*', 'name'),
-        fetchTable('notifications', '*', 'created_at'),
-        fetchTable('deleted_assets', '*', 'deleted_at'),
+        fetchTable('assets', '*'),
+        fetchTable('disposed', '*'),
+        fetchTable('categories', '*'),
+        fetchTable('locations', '*'),
+        fetchTable('users', '*'),
+        fetchTable('admin_credentials', '*'),
+        fetchTable('notifications', '*'),
+        fetchTable('deleted_assets', '*'),
         (async () => {
           try {
-            const res = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(5000);
-            if (!res.error) return res.data || [];
-            const res2 = await supabase.from('reports').select('*').order('reported_at', { ascending: false }).limit(5000);
-            return res2.data || [];
+            const res = await supabase.from('reports').select('*').limit(5000);
+            return res.data || [];
           } catch (e) { return []; }
         })()
       ]);
